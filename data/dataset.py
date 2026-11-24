@@ -8,17 +8,28 @@ Os arquivos são abertos com mmap, então não ocupam a RAM inteira.
 """
 import json
 import os
+import pickle
 import random
 
 import torch
 from torch.utils.data import DataLoader, Dataset
+from torchvision import tv_tensors
 
 
 def _load_tensor(path, mmap):
-    x = torch.load(path, map_location="cpu", mmap=mmap)
+    """Carrega o .pth como torch.Tensor comum (os arquivos podem ser tv_tensors.Image)."""
+    kw = dict(map_location="cpu", mmap=mmap)
+    try:
+        # Libera só a classe tv_tensors.Image, mantendo o carregamento seguro (weights_only).
+        with torch.serialization.safe_globals([tv_tensors.Image, tv_tensors.Mask]):
+            x = torch.load(path, **kw)
+    except pickle.UnpicklingError as e:
+        print(f"[aviso] {os.path.basename(path)}: carregamento seguro falhou ({str(e)[:120]}...); "
+              "usando weights_only=False (arquivo próprio, confiável).")
+        x = torch.load(path, weights_only=False, **kw)
     if isinstance(x, dict):
         x = next(v for v in x.values() if torch.is_tensor(v))
-    return x
+    return x.as_subclass(torch.Tensor)  # tira a subclasse (tv_tensors) e mantém o mmap
 
 
 def load_split_tensors(root, split, cache_ram=False):
