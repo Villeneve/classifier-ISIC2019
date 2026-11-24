@@ -8,3 +8,5 @@ dataset/
 .DS_Store
 pth
 *.pth
+ISIC-2019
+cache/

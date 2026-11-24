@@ -1,6 +1,6 @@
 """Compara arquiteturas na classificação binária (benigno x maligno) do ISIC-2019.
 
-Exemplos (dataset em ./pth, GPU 1 por padrão):
+Exemplos (dataset em ./ISIC-2019, GPU 1 por padrão; o cache de imagens é criado na 1ª execução):
     python main.py --models resnet50 --epochs 1 --subset 200   # smoke test
     python main.py                                             # todas as arquiteturas
     python main.py --gpu 0                                     # usa outra GPU
@@ -42,12 +42,16 @@ def parse_args():
     ap.add_argument("--subset", type=int, default=0, help="N amostras por split (smoke test)")
     ap.add_argument("--no-pretrained", action="store_true")
     ap.add_argument("--cache-ram", action="store_true")
+    ap.add_argument("--cache-dir", default=Config.cache_dir)
+    ap.add_argument("--rebuild-cache", action="store_true", help="refaz o cache de imagens")
+    ap.add_argument("--ak", choices=["benign", "malignant", "drop"], default=Config.ak,
+                    help="como tratar AK (queratose actínica): benigno, maligno ou descartar")
     ap.add_argument("--compile", action="store_true")
     ap.add_argument("--seed", type=int, default=Config.seed)
     a = ap.parse_args()
     return Config(data_root=a.data_root, gpu=a.gpu, out_dir=a.out_dir, models=a.models, pretrained=not a.no_pretrained,
                   epochs=a.epochs, lr=a.lr, patience=a.patience, freeze_epochs=a.freeze_epochs,
-                  num_workers=a.num_workers, cache_ram=a.cache_ram, subset=a.subset,
+                  num_workers=a.num_workers, cache_ram=a.cache_ram, cache_dir=a.cache_dir, rebuild_cache=a.rebuild_cache, ak=a.ak, subset=a.subset,
                   batch_size=a.batch_size, img_size=a.img_size, compile=a.compile, seed=a.seed)
 
 

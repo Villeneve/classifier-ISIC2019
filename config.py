@@ -23,7 +23,7 @@ DEFAULT_BATCH = 64
 
 @dataclass
 class Config:
-    data_root: str = "pth"              # pasta (ou link simbólico) com {train,test}_{images,labels}.pth
+    data_root: str = "ISIC-2019"        # pasta (ou link simbólico) com train/ e test/ originais
     gpu: int = 1                        # índice da GPU (1 = RTX 5060 Ti; ordem PCI, como no nvidia-smi)
     out_dir: str = "outputs"
     models: list = field(default_factory=lambda: list(ALL_MODELS))
@@ -33,8 +33,12 @@ class Config:
     weight_decay: float = 1e-4
     patience: int = 6                   # early stopping (épocas sem melhora do AUC de validação)
     freeze_epochs: int = 0              # épocas iniciais só treinando a cabeça
-    num_workers: int = 2                # CPU fraca: poucos workers (só lê .pt, sem decode)
-    cache_ram: bool = False             # carrega os .pth inteiros na RAM em vez de mmap
+    num_workers: int = 2                # CPU fraca: poucos workers (só lê o cache uint8, sem decode)
+    cache_ram: bool = False             # carrega o cache .npy inteiro na RAM (~15 GB) em vez de mmap
+    cache_dir: str = "cache"            # onde ficam os caches uint8 das imagens
+    cache_size: int = 450               # lado (px) do cache quadrado
+    rebuild_cache: bool = False         # força refazer o cache
+    ak: str = "benign"                  # AK: benign | malignant | drop
     subset: int = 0                     # >0: usa só N amostras por split (smoke test)
     batch_size: int = 0                 # >0: sobrescreve BATCH_SIZE
     img_size: int = 0                   # >0: sobrescreve INPUT_SIZE
