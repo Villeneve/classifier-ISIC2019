@@ -1,0 +1,6 @@
+# RTX 5060 Ti (Blackwell, sm_120) exige PyTorch >= 2.7 com CUDA 12.8:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+torchinfo
+tqdm
+numpy
+matplotlib
