@@ -1,10 +1,10 @@
-"""Dataset ISIC-2019 binário: um .pt por imagem (uint8, RGB 450x450).
+"""Dataset ISIC-2019 binário a partir de tensores .pth.
 
-PONTO DE ADAPTAÇÃO: `_scan` descobre (caminho, rótulo, split) a partir da estrutura
-de pastas. Layouts suportados (nomes de pasta case-insensitive):
-    root/{train,val,test}/{benign,malignant}/*.pt
-    root/{benign,malignant}/*.pt            (split estratificado gerado automaticamente)
-Pastas de classe aceitas: benign/benigno/0  e  malignant/maligno/1.
+Espera em `data_root` (ex.: o link simbólico `pth/`):
+    train_images.pth  [N,3,450,450] uint8      train_labels.pth  [N] ou [N,1]  (0 benigno, 1 maligno)
+    test_images.pth   [M,3,450,450] uint8      test_labels.pth   [M] ou [M,1]
+Não há split de validação pronto: ele é separado do treino (estratificado, seed fixa).
+Os arquivos são abertos com mmap, então não ocupam a RAM inteira.
 """
 import json
 import os
@@ -13,116 +13,83 @@ import random
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-MAL = {"1", "malignant", "maligno", "malign", "mal"}
-BEN = {"0", "benign", "benigno", "ben"}
-SPLIT_ALIASES = {"train": "train", "val": "val", "valid": "val", "validation": "val", "test": "test"}
+
+def _load_tensor(path, mmap):
+    x = torch.load(path, map_location="cpu", mmap=mmap)
+    if isinstance(x, dict):
+        x = next(v for v in x.values() if torch.is_tensor(v))
+    return x
 
 
-def _scan(root):
-    """Retorna {split: [(path, label), ...]}; split 'all' se não houver pastas de split."""
-    out = {}
-    for dp, _, files in os.walk(root):
-        rel = os.path.relpath(dp, root).lower().split(os.sep)
-        label, split = None, "all"
-        for part in rel:
-            if part in MAL:
-                label = 1
-            elif part in BEN:
-                label = 0
-            elif part in SPLIT_ALIASES:
-                split = SPLIT_ALIASES[part]
-        for f in files:
-            if not f.endswith(".pt"):
-                continue
-            if label is None:
-                raise ValueError(f"Não consegui inferir o rótulo de {os.path.join(dp, f)}; ajuste _scan().")
-            out.setdefault(split, []).append((os.path.join(dp, f), label))
-    for v in out.values():
-        v.sort()
-    if not out:
-        raise FileNotFoundError(f"Nenhum .pt encontrado em {root}")
-    return out
+def load_split_tensors(root, split, cache_ram=False):
+    """Retorna (imagens [N,3,H,W], rótulos int64 [N])."""
+    imgs = _load_tensor(os.path.join(root, f"{split}_images.pth"), mmap=not cache_ram)
+    labels = _load_tensor(os.path.join(root, f"{split}_labels.pth"), mmap=False).reshape(-1).long()
+    if len(imgs) != len(labels):
+        raise ValueError(f"{split}: {len(imgs)} imagens vs {len(labels)} rótulos")
+    if not set(labels.unique().tolist()) <= {0, 1}:
+        raise ValueError(f"{split}: rótulos não são binários: {labels.unique().tolist()}")
+    return imgs, labels
 
 
-def _stratified_split(items, fracs, seed):
-    """Divide `items` em len(fracs) partes estratificadas por rótulo (última recebe o resto)."""
+def _stratified_split(labels, val_frac, seed):
+    """Separa índices em (treino, validação) mantendo a proporção de classes."""
     rng = random.Random(seed)
-    parts = [[] for _ in fracs]
+    tr, va = [], []
     for lab in (0, 1):
-        grp = [it for it in items if it[1] == lab]
-        rng.shuffle(grp)
-        start = 0
-        for i, fr in enumerate(fracs):
-            end = len(grp) if i == len(fracs) - 1 else start + int(round(fr * len(grp)))
-            parts[i] += grp[start:end]
-            start = end
-    for p in parts:
-        rng.shuffle(p)
-    return parts
+        idx = [i for i, l in enumerate(labels.tolist()) if l == lab]
+        rng.shuffle(idx)
+        n_val = int(round(val_frac * len(idx)))
+        va += idx[:n_val]
+        tr += idx[n_val:]
+    rng.shuffle(tr)
+    rng.shuffle(va)
+    return tr, va
 
 
-def make_splits(cfg):
-    found = _scan(cfg.data_root)
-    if {"train", "val", "test"} <= found.keys():
-        splits = {k: found[k] for k in ("train", "val", "test")}
-    elif "all" in found:
-        tr, va, te = _stratified_split(
-            found["all"], [1 - cfg.val_frac - cfg.test_frac, cfg.val_frac, cfg.test_frac], cfg.seed)
-        splits = {"train": tr, "val": va, "test": te}
-    elif {"train", "test"} <= found.keys():
-        tr, va = _stratified_split(found["train"], [1 - cfg.val_frac, cfg.val_frac], cfg.seed)
-        splits = {"train": tr, "val": va, "test": found["test"]}
-    else:
-        raise ValueError(f"Layout de splits não reconhecido: {list(found)}")
-
-    os.makedirs(cfg.out_dir, exist_ok=True)
-    with open(os.path.join(cfg.out_dir, "split.json"), "w") as f:
-        json.dump(splits, f)
-
-    if cfg.subset > 0:
-        rng = random.Random(cfg.seed)
-        splits = {k: rng.sample(v, min(cfg.subset, len(v))) for k, v in splits.items()}
-    return splits
-
-
-class PTDataset(Dataset):
+class TensorDataset(Dataset):
     """Retorna (uint8 [3,H,W], rótulo float). Sem augmentation: ela roda na GPU."""
 
-    def __init__(self, items, cache_ram=False):
-        self.items = items
-        self.cache = [self._load(p) for p, _ in items] if cache_ram else None
-
-    @staticmethod
-    def _load(path):
-        x = torch.load(path, map_location="cpu")
-        if isinstance(x, dict):
-            x = next(v for v in x.values() if torch.is_tensor(v))
-        if x.ndim == 3 and x.shape[-1] == 3 and x.shape[0] != 3:  # HWC -> CHW
-            x = x.permute(2, 0, 1)
-        if x.dtype != torch.uint8:
-            x = (x * 255 if x.is_floating_point() and x.max() <= 1.0 else x).clamp(0, 255).to(torch.uint8)
-        return x.contiguous()
+    def __init__(self, images, labels, indices):
+        self.images, self.labels, self.indices = images, labels, indices
 
     def __len__(self):
-        return len(self.items)
+        return len(self.indices)
 
     def __getitem__(self, i):
-        x = self.cache[i] if self.cache is not None else self._load(self.items[i][0])
-        return x, torch.tensor(float(self.items[i][1]))
+        j = self.indices[i]
+        x = self.images[j]
+        if x.dtype != torch.uint8:
+            x = (x * 255 if x.is_floating_point() and x.max() <= 1.0 else x).clamp(0, 255).to(torch.uint8)
+        return x.clone(), self.labels[j].float()  # clone: tira o tensor do mmap
 
 
 def make_loaders(cfg, batch_size):
-    splits = make_splits(cfg)
-    loaders = {}
-    for name, items in splits.items():
-        ds = PTDataset(items, cfg.cache_ram)
+    tr_imgs, tr_labels = load_split_tensors(cfg.data_root, "train", cfg.cache_ram)
+    te_imgs, te_labels = load_split_tensors(cfg.data_root, "test", cfg.cache_ram)
+
+    tr_idx, va_idx = _stratified_split(tr_labels, cfg.val_frac, cfg.seed)
+    te_idx = list(range(len(te_labels)))
+    os.makedirs(cfg.out_dir, exist_ok=True)
+    with open(os.path.join(cfg.out_dir, "split.json"), "w") as f:
+        json.dump({"train": tr_idx, "val": va_idx, "test_size": len(te_idx)}, f)
+
+    if cfg.subset > 0:  # smoke test
+        rng = random.Random(cfg.seed)
+        tr_idx, va_idx, te_idx = (rng.sample(s, min(cfg.subset, len(s))) for s in (tr_idx, va_idx, te_idx))
+
+    parts = {"train": (tr_imgs, tr_labels, tr_idx),
+             "val": (tr_imgs, tr_labels, va_idx),
+             "test": (te_imgs, te_labels, te_idx)}
+    loaders, counts = {}, {}
+    for name, (imgs, labels, idx) in parts.items():
         train = name == "train"
         loaders[name] = DataLoader(
-            ds, batch_size=batch_size, shuffle=train, drop_last=train and len(ds) > batch_size,
-            num_workers=cfg.num_workers, pin_memory=torch.cuda.is_available(),
-            persistent_workers=cfg.num_workers > 0)
-    n_pos = sum(l for _, l in splits["train"])
-    n_neg = len(splits["train"]) - n_pos
-    pos_weight = n_neg / max(n_pos, 1)
-    counts = {k: (len(v), sum(l for _, l in v)) for k, v in splits.items()}
+            TensorDataset(imgs, labels, idx), batch_size=batch_size, shuffle=train,
+            drop_last=train and len(idx) > batch_size, num_workers=cfg.num_workers,
+            pin_memory=torch.cuda.is_available(), persistent_workers=cfg.num_workers > 0)
+        counts[name] = (len(idx), int(labels[idx].sum()))
+
+    n, n_pos = counts["train"]
+    pos_weight = (n - n_pos) / max(n_pos, 1)
     return loaders, pos_weight, counts

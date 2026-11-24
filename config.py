@@ -23,7 +23,8 @@ DEFAULT_BATCH = 64
 
 @dataclass
 class Config:
-    data_root: str = "dataset"          # raiz dos .pt (ver data/dataset.py::_scan)
+    data_root: str = "pth"              # pasta (ou link simbólico) com {train,test}_{images,labels}.pth
+    gpu: int = 1                        # índice da GPU (1 = RTX 5060 Ti; ordem PCI, como no nvidia-smi)
     out_dir: str = "outputs"
     models: list = field(default_factory=lambda: list(ALL_MODELS))
     pretrained: bool = True             # pesos ImageNet (requer internet na 1ª vez)
@@ -33,18 +34,21 @@ class Config:
     patience: int = 6                   # early stopping (épocas sem melhora do AUC de validação)
     freeze_epochs: int = 0              # épocas iniciais só treinando a cabeça
     num_workers: int = 2                # CPU fraca: poucos workers (só lê .pt, sem decode)
-    cache_ram: bool = False             # carrega todos os .pt na RAM (~15 GB)
+    cache_ram: bool = False             # carrega os .pth inteiros na RAM em vez de mmap
     subset: int = 0                     # >0: usa só N amostras por split (smoke test)
     batch_size: int = 0                 # >0: sobrescreve BATCH_SIZE
     img_size: int = 0                   # >0: sobrescreve INPUT_SIZE
     compile: bool = False               # torch.compile
     seed: int = 42
-    val_frac: float = 0.15
-    test_frac: float = 0.15
+    val_frac: float = 0.15              # fração do treino separada para validação
 
     @property
     def device(self):
-        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if not torch.cuda.is_available():
+            return torch.device("cpu")
+        if not 0 <= self.gpu < torch.cuda.device_count():
+            raise ValueError(f"--gpu {self.gpu} inválida: há {torch.cuda.device_count()} GPU(s) visíveis")
+        return torch.device(f"cuda:{self.gpu}")
 
     def size_for(self, name):
         return self.img_size or INPUT_SIZE.get(name, DEFAULT_SIZE)

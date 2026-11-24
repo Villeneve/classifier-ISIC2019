@@ -1,13 +1,18 @@
 """Compara arquiteturas na classificação binária (benigno x maligno) do ISIC-2019.
 
-Exemplos:
-    python main.py --data-root /caminho/dataset --models resnet50 --epochs 1 --subset 200   # smoke test
-    python main.py --data-root /caminho/dataset                                              # todas
+Exemplos (dataset em ./pth, GPU 1 por padrão):
+    python main.py --models resnet50 --epochs 1 --subset 200   # smoke test
+    python main.py                                             # todas as arquiteturas
+    python main.py --gpu 0                                     # usa outra GPU
 """
 import argparse
 import gc
 import json
 import os
+
+# Faz o índice da GPU seguir a ordem do nvidia-smi (por padrão o PyTorch ordena pela mais rápida).
+# Precisa ser definido antes de o CUDA ser inicializado.
+os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
 
 import torch
 from torchinfo import summary
@@ -24,6 +29,7 @@ from utils.seed import set_seed
 def parse_args():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-root", default=Config.data_root)
+    ap.add_argument("--gpu", type=int, default=Config.gpu, help="índice da GPU (padrão 1 = RTX 5060 Ti)")
     ap.add_argument("--out-dir", default=Config.out_dir)
     ap.add_argument("--models", nargs="+", default=ALL_MODELS, choices=ALL_MODELS)
     ap.add_argument("--epochs", type=int, default=Config.epochs)
@@ -39,7 +45,7 @@ def parse_args():
     ap.add_argument("--compile", action="store_true")
     ap.add_argument("--seed", type=int, default=Config.seed)
     a = ap.parse_args()
-    return Config(data_root=a.data_root, out_dir=a.out_dir, models=a.models, pretrained=not a.no_pretrained,
+    return Config(data_root=a.data_root, gpu=a.gpu, out_dir=a.out_dir, models=a.models, pretrained=not a.no_pretrained,
                   epochs=a.epochs, lr=a.lr, patience=a.patience, freeze_epochs=a.freeze_epochs,
                   num_workers=a.num_workers, cache_ram=a.cache_ram, subset=a.subset,
                   batch_size=a.batch_size, img_size=a.img_size, compile=a.compile, seed=a.seed)
@@ -91,7 +97,11 @@ def run_model(name, cfg):
 def main():
     cfg = parse_args()
     torch.backends.cudnn.benchmark = True
-    print(f"device: {cfg.device} | torch {torch.__version__}")
+    device = cfg.device
+    if device.type == "cuda":
+        torch.cuda.set_device(device)
+    name = torch.cuda.get_device_name(device) if device.type == "cuda" else "CPU"
+    print(f"device: {device} ({name}) | torch {torch.__version__}")
     os.makedirs(cfg.out_dir, exist_ok=True)
 
     summary_all = {}

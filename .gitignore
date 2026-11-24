@@ -6,3 +6,5 @@ dataset/
 .venv/
 .claude/
 .DS_Store
+pth
+*.pth

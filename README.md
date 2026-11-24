@@ -13,32 +13,40 @@ pip install torchinfo tqdm numpy matplotlib
 ```
 
 ## Dataset
-Um `.pt` por imagem (uint8, RGB, 450×450). A estrutura de pastas é lida por `_scan()` em `data/dataset.py`:
+O projeto lê a pasta `pth/` (na raiz do projeto, normalmente um link simbólico; ignorada pelo git):
 
 ```
-root/{train,val,test}/{benign,malignant}/*.pt     # splits prontos
-root/{benign,malignant}/*.pt                      # split estratificado 70/15/15 automático
+pth/train_images.pth  [N,3,450,450] uint8     pth/train_labels.pth  [N] ou [N,1]
+pth/test_images.pth   [M,3,450,450] uint8     pth/test_labels.pth   [M] ou [M,1]
 ```
-Pastas de classe aceitas: `benign`/`benigno`/`0` e `malignant`/`maligno`/`1`. Se o seu layout for
-diferente, só `_scan()` precisa mudar. O split usado é salvo em `outputs/split.json`.
+Rótulos binários (0 benigno, 1 maligno). Não há validação pronta: ela é separada do treino
+(15%, estratificada, seed fixa; índices em `outputs/split.json`). Os `.pth` são abertos com mmap.
+
+```bash
+ln -s /caminho/real/da/pasta/pth pth
+```
+
+## GPU
+Padrão: GPU **1** (RTX 5060 Ti). Use `--gpu 0` para a outra. O índice segue a ordem do `nvidia-smi`
+(`CUDA_DEVICE_ORDER=PCI_BUS_ID` é definido em `main.py`) e o nome da GPU é impresso ao iniciar.
 
 ## Uso
 ```bash
 # smoke test
-python main.py --data-root /caminho/dataset --models resnet50 --epochs 1 --subset 200
+python main.py --models resnet50 --epochs 1 --subset 200
 
 # todas as arquiteturas
-python main.py --data-root /caminho/dataset
+python main.py
 ```
 
-Opções úteis: `--models`, `--epochs`, `--lr`, `--patience`, `--freeze-epochs`, `--batch-size`,
-`--img-size`, `--num-workers`, `--cache-ram` (~15 GB), `--compile`, `--no-pretrained`, `--seed`.
+Opções úteis: `--gpu`, `--data-root`, `--models`, `--epochs`, `--lr`, `--patience`, `--freeze-epochs`, `--batch-size`,
+`--img-size`, `--num-workers`, `--cache-ram` (carrega os .pth na RAM), `--compile`, `--no-pretrained`, `--seed`.
 
 ## Estrutura
 ```
 main.py              orquestra: summary, treino, teste e comparação por modelo
 config.py            hiperparâmetros, modelos, tamanhos de entrada e batch por modelo
-data/dataset.py      _scan, splits, Dataset de .pt, DataLoaders, pos_weight
+data/dataset.py      leitura dos .pth, split de validação, DataLoaders, pos_weight
 data/augment.py      pré-processamento e augmentation em batch na GPU
 models/factory.py    modelos torchvision com cabeça de 1 logit
 engine/train.py      loop de treino/validação, early stopping, checkpoint
