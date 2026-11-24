@@ -65,8 +65,31 @@ utils/seed.py        reprodutibilidade
 ```
 
 ## Arquiteturas
-`resnet50`, `densenet121`, `efficientnet_b0`, `efficientnet_b3` (300 px), `mobilenet_v3_large`,
-`convnext_tiny`, `vit_b_16`. Pesos ImageNet (exigem internet na primeira execução).
+Todos usam pesos ImageNet (exigem internet na primeira execução) e se escolhem com `--models`.
+Sem `--models`, rodam os 7 modelos padrão (marcados com ★).
+
+Em **ordem ascendente de custo computacional** (GFLOPs por imagem a 224 px, forward; valores aproximados da
+documentação do torchvision):
+
+| # | Modelo | GFLOPs | Parâmetros | Obs. |
+|---|--------|-------:|-----------:|------|
+| 1 | `mobilenet_v3_large` ★ | 0,22 | 5,5 M | |
+| 2 | `efficientnet_b0` ★ | 0,39 | 5,3 M | |
+| 3 | `resnet18` | 1,8 | 11,7 M | |
+| 4 | `efficientnet_b3` ★ | 1,8 | 12,2 M | roda a 300 px (custo real maior) |
+| 5 | `densenet121` ★ | 2,8 | 8,0 M | |
+| 6 | `resnet34` | 3,7 | 21,8 M | |
+| 7 | `resnet50` ★ | 4,1 | 25,6 M | |
+| 8 | `convnext_tiny` ★ | 4,5 | 28,6 M | |
+| 9 | `vgg11` / `vgg11_bn` | 7,6 | 132,9 M | |
+| 10 | `vgg13` / `vgg13_bn` | 11,3 | 133,0 M | |
+| 11 | `vgg16` / `vgg16_bn` | 15,5 | 138,4 M | |
+| 12 | `vit_b_16` ★ | 17,6 | 86,6 M | exige 224 px |
+| 13 | `vgg19` / `vgg19_bn` | 19,6 | 143,7 M | |
+
+As variantes `_bn` têm BatchNorm (treinam mais estável) e custo praticamente igual. GFLOPs não é tempo de
+treino: VGG tem muitos parâmetros e usa bastante VRAM (batch padrão 32), e DenseNet/EfficientNet costumam ser
+mais lentos do que seus GFLOPs sugerem. A ordem é uma referência, não um benchmark medido nesta máquina.
 
 ## Decisões de projeto
 - **Saída de 1 logit** com `BCEWithLogitsLoss(pos_weight = n_benigno / n_maligno)` para o desbalanceamento.

@@ -17,7 +17,7 @@ os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
 import torch
 from torchinfo import summary
 
-from config import ALL_MODELS, Config
+from config import ALL_MODELS, AVAILABLE_MODELS, Config
 from data.dataset import make_loaders
 from engine.metrics import compute_metrics, roc_auc, roc_curve, youden_threshold
 from engine.train import fit, predict
@@ -31,7 +31,7 @@ def parse_args():
     ap.add_argument("--data-root", default=Config.data_root)
     ap.add_argument("--gpu", type=int, default=Config.gpu, help="índice da GPU (padrão 1 = RTX 5060 Ti)")
     ap.add_argument("--out-dir", default=Config.out_dir)
-    ap.add_argument("--models", nargs="+", default=ALL_MODELS, choices=ALL_MODELS)
+    ap.add_argument("--models", nargs="+", default=ALL_MODELS, choices=AVAILABLE_MODELS)
     ap.add_argument("--epochs", type=int, default=Config.epochs)
     ap.add_argument("--lr", type=float, default=Config.lr)
     ap.add_argument("--patience", type=int, default=Config.patience)

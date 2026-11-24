@@ -2,6 +2,7 @@
 from dataclasses import dataclass, field
 import torch
 
+# Modelos executados por padrão (sem --models).
 ALL_MODELS = [
     "resnet50",
     "densenet121",
@@ -12,12 +13,30 @@ ALL_MODELS = [
     "vit_b_16",
 ]
 
+# Todos os modelos aceitos por --models, em ordem ascendente de custo (GFLOPs a 224 px; ver README).
+AVAILABLE_MODELS = [
+    "mobilenet_v3_large",
+    "efficientnet_b0",
+    "resnet18",
+    "efficientnet_b3",
+    "densenet121",
+    "resnet34",
+    "resnet50",
+    "convnext_tiny",
+    "vgg11", "vgg11_bn",
+    "vgg13", "vgg13_bn",
+    "vgg16", "vgg16_bn",
+    "vit_b_16",
+    "vgg19", "vgg19_bn",
+]
+
 # Resolução de entrada por modelo (padrão 224). ViT-B/16 exige 224.
 INPUT_SIZE = {"efficientnet_b3": 300}
 DEFAULT_SIZE = 224
 
 # Batch size por modelo (padrão 64) — ajustado para 16 GB de VRAM com bf16.
-BATCH_SIZE = {"efficientnet_b3": 32, "convnext_tiny": 48, "densenet121": 48}
+BATCH_SIZE = {"efficientnet_b3": 32, "convnext_tiny": 48, "densenet121": 48,
+              **{f"vgg{n}{s}": 32 for n in (11, 13, 16, 19) for s in ("", "_bn")}}  # VGG usa muita VRAM
 DEFAULT_BATCH = 64
 
 
