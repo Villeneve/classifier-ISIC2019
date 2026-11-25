@@ -8,11 +8,13 @@
 :root {
   --bg: #fafaf9; --surface: #ffffff; --text: #1c1917; --muted: #78716c; --line: #e7e5e4;
   --accent: #2563eb; --accent-soft: #eef3ff; --hover: #f5f5f4; --shadow: 0 1px 2px rgba(0,0,0,.04);
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0f0f10; --surface: #18181a; --text: #ececec; --muted: #9a9a9f; --line: #2a2a2e;
     --accent: #6b9bff; --accent-soft: #1b2438; --hover: #202023; --shadow: none;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
   }
 }
 * { box-sizing: border-box; }
@@ -82,6 +84,13 @@ td.name { font-weight: 500; }
 .tip span { margin-left: auto; padding-left: 12px; font-variant-numeric: tabular-nums; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--muted); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart .scroll { overflow-x: auto; }
+.chart .scroll svg { width: auto; overflow: hidden; }
+.chart .base { stroke: var(--muted); stroke-width: 1; }
+.chart .hit { fill: transparent; }
+.chart .hit:hover { fill: var(--text); fill-opacity: .05; }
+.chart .legend { margin: 0 0 12px; }
+.chart .legend i { border-radius: 2px; }
 .two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 .cm { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; font-size: 13px; align-items: stretch; }
 .cm .h { color: var(--muted); font-size: 12px; display: flex; align-items: center; justify-content: center; padding: 2px 6px; text-align: center; }
@@ -91,7 +100,7 @@ td.name { font-weight: 500; }
 .cm .c.ok { background: var(--accent-soft); }
 .gallery { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .gallery figure { margin: 0; }
-.gallery img, .full img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--line); cursor: zoom-in; background: #fff; }
+.gallery img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--line); cursor: zoom-in; background: #fff; }
 .gallery figcaption { color: var(--muted); font-size: 12px; margin-top: 6px; }
 details { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); margin-bottom: 8px; }
 details > summary { padding: 10px 14px; cursor: pointer; list-style: none; display: flex; gap: 10px; align-items: center; }
@@ -273,6 +282,67 @@ function lineChart(series, { height = 300, yFmt = v => v.toFixed(2), legend = tr
   return wrap;
 }
 
+/* ---------- gráfico de barras agrupadas (SVG) ---------- */
+// Métricas exibidas; a ordem fixa a cor (--s1..--s5).
+const BAR_KEYS = ['auc', 'balanced_accuracy', 'sensitivity', 'specificity', 'f1'];
+
+function barChart(rows, width, height = 340) {
+  const wrap = document.createElement('div');
+  wrap.className = 'chart';
+  if (!rows.length) { wrap.innerHTML = '<div class="empty">Sem dados</div>'; return wrap; }
+  const series = BAR_KEYS.map((k, i) => ({ k, name: COLS.find(c => c[0] === k)[1], color: `var(--s${i + 1})` }));
+  const m = { l: 36, r: 4, t: 8, b: 28 };
+  const longest = Math.max(...rows.map(r => r.m.length)) * 6.4;
+  // Cada grupo tem no mínimo 76px; se não couber, o gráfico rola na horizontal.
+  const W = Math.max(width, m.l + m.r + rows.length * 76);
+  const gw = (W - m.l - m.r) / rows.length;
+  const tilt = longest > gw - 8;
+  if (tilt) { m.b = Math.ceil(longest * .5) + 24; m.l = Math.max(m.l, Math.ceil(longest * .87 - gw / 2)); }
+  const group = (W - m.l - m.r) / rows.length;
+  const gap = 2, bw = Math.max(4, Math.min(24, (group * .78 - gap * (series.length - 1)) / series.length));
+  const span = series.length * bw + (series.length - 1) * gap;
+  const H = height + m.b, y = v => m.t + (1 - v) * (height - m.t);
+
+  let g = '';
+  for (let k = 0; k <= 5; k++) {
+    const v = k / 5;
+    g += `<line class="${k ? 'grid-l' : 'base'}" x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}"/><text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end">${num(v, 1)}</text>`;
+  }
+  rows.forEach((r, i) => {
+    const x0 = m.l + i * group + (group - span) / 2, cx = m.l + (i + .5) * group;
+    series.forEach((s, j) => {
+      if (!Number.isFinite(r[s.k])) return;
+      const x = x0 + j * (bw + gap), top = y(Math.max(0, Math.min(1, r[s.k])));
+      const h = height - top, c = Math.min(4, bw / 2, h);
+      g += `<path fill="${s.color}" d="M${x},${height}v${c - h}q0,${-c} ${c},${-c}h${bw - 2 * c}q${c},0 ${c},${c}v${h - c}z"/>`;
+    });
+    g += tilt
+      ? `<text transform="translate(${cx},${height + 14}) rotate(-30)" text-anchor="end">${esc(r.m)}</text>`
+      : `<text x="${cx}" y="${height + 18}" text-anchor="middle">${esc(r.m)}</text>`;
+  });
+  rows.forEach((r, i) => g += `<rect class="hit" data-act="open" data-m="${esc(r.m)}" data-i="${i}" x="${m.l + i * group}" y="${m.t}" width="${group}" height="${height - m.t}" style="cursor:pointer"/>`);
+
+  wrap.innerHTML = `<div class="legend">${series.map(s => `<span><i style="background:${s.color}"></i>${s.name}</span>`).join('')}</div>`
+    + `<div class="scroll"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Métricas de teste por modelo">${g}</svg></div><div class="tip"></div>`;
+
+  const tip = $('.tip', wrap), scroll = $('.scroll', wrap);
+  const hide = () => tip.style.display = 'none';
+  wrap.addEventListener('mousemove', ev => {
+    const i = ev.target.dataset?.i;
+    if (i == null) return hide();
+    const r = rows[i];
+    tip.innerHTML = `<b>${esc(r.m)}</b>` + series.map(s => `<div><i style="background:${s.color}"></i>${s.name}<span>${num(r[s.k])}</span></div>`).join('');
+    tip.style.display = 'block';
+    tip.style.top = scroll.offsetTop + 'px';
+    const left = m.l + (+i + .5) * group - scroll.scrollLeft, half = group / 2 + 4;
+    const pos = left > wrap.clientWidth / 2 ? left - half - tip.offsetWidth : left + half;
+    tip.style.left = Math.max(0, Math.min(wrap.clientWidth - tip.offsetWidth, pos)) + 'px';
+  });
+  wrap.addEventListener('mouseleave', hide);
+  scroll.addEventListener('scroll', hide);
+  return wrap;
+}
+
 /* ---------- JSON ---------- */
 function trunc(v) {
   if (Array.isArray(v)) return v.length > 40 ? [...v.slice(0, 20).map(trunc), `… +${v.length - 20} itens`] : v.map(trunc);
@@ -334,7 +404,17 @@ function viewOverview() {
       <div class="toolbar"><select data-sel="bar">${COLS.filter(c => c[0] !== 'threshold').map(([k, l]) => `<option value="${k}" ${k === bk ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
       <div class="bars">${bars}</div>
     </div>
-    ${has('comparison.png') ? `<h2>Gráfico do projeto</h2><div class="card full"><img data-act="zoom" src="${urlFor('comparison.png')}" alt="Comparação entre modelos" onerror="this.closest('.card').previousElementSibling.remove();this.closest('.card').remove()"></div>` : ''}`;
+    <h2>Gráfico do projeto</h2>
+    <div class="card" id="bar-host"></div>
+    <p class="note">${THR[S.thr]} · passe o mouse para ver os valores; clique em um modelo para abrir os detalhes.</p>`;
+}
+function mountOverview() {
+  const host = $('#bar-host'); if (!host) return;
+  const cs = getComputedStyle(host);
+  const width = host.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  // Mesma ordem do main.py: AUC decrescente.
+  const rows = rowsData().filter(r => BAR_KEYS.some(k => Number.isFinite(r[k]))).sort((a, b) => (b.auc ?? -1) - (a.auc ?? -1));
+  host.replaceChildren(barChart(rows, width));
 }
 
 function viewCurves() {
@@ -428,6 +508,7 @@ function render() {
   const main = $('#main');
   if (!S.src || !S.models.length) { main.innerHTML = viewEmpty(); return; }
   main.innerHTML = { overview: viewOverview, curves: viewCurves, models: viewModels, files: viewFiles }[S.tab]();
+  if (S.tab === 'overview') mountOverview();
   if (S.tab === 'curves') mountCurves();
   if (S.tab === 'models') mountModels();
 }
@@ -480,6 +561,12 @@ $('#main').addEventListener('toggle', async e => {
   $('summary', d).append(meta);
 }, true);
 $('#lb').addEventListener('click', () => $('#lb').close());
+
+let resizeTimer;
+addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (S.tab === 'overview') mountOverview(); }, 150);
+});
 
 /* ---------- início ---------- */
 render();
