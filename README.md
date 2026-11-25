@@ -62,6 +62,7 @@ engine/train.py      loop de treino/validação, early stopping, checkpoint
 engine/metrics.py    AUC, ROC, sensibilidade, especificidade, F1... (numpy)
 utils/plots.py       curvas, ROC, matriz de confusão, comparação
 utils/seed.py        reprodutibilidade
+viewer/index.html    visualizador web dos resultados (ver seção abaixo)
 ```
 
 ## Arquiteturas
@@ -90,6 +91,22 @@ documentação do torchvision):
 As variantes `_bn` têm BatchNorm (treinam mais estável) e custo praticamente igual. GFLOPs não é tempo de
 treino: VGG tem muitos parâmetros e usa bastante VRAM (batch padrão 32), e DenseNet/EfficientNet costumam ser
 mais lentos do que seus GFLOPs sugerem. A ordem é uma referência, não um benchmark medido nesta máquina.
+
+## Visualizador de resultados (`viewer/index.html`)
+Página única (sem dependências) para explorar o que o `main.py` gera em `outputs/`: tabela comparativa
+ordenável, ranking por métrica, curvas por época sobrepostas, detalhe por modelo (métricas, matriz de
+confusão, imagens `history/roc/confusion.png`, torchinfo), visualização dos `.json` e download de um
+**JSON combinado** com métricas e histórico de todos os modelos.
+
+Duas formas de abrir:
+```bash
+# 1) com servidor (carrega ../outputs/ sozinho); na raiz do projeto:
+python -m http.server 8000     # depois abra http://localhost:8000/viewer/
+
+# 2) sem servidor: abra viewer/index.html no navegador e clique em "Abrir pasta outputs"
+```
+Se o treino roda em outra máquina: `ssh -L 8000:localhost:8000 usuario@servidor`, rode o servidor lá e abra
+`http://localhost:8000/viewer/` localmente (ou copie `outputs/` e use a forma 2).
 
 ## Decisões de projeto
 - **Saída de 1 logit** com `BCEWithLogitsLoss(pos_weight = n_benigno / n_maligno)` para o desbalanceamento.

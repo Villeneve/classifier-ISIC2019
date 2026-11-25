@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ISIC-2019 · Resultados</title>
+<style>
+:root {
+  --bg: #fafaf9; --surface: #ffffff; --text: #1c1917; --muted: #78716c; --line: #e7e5e4;
+  --accent: #2563eb; --accent-soft: #eef3ff; --hover: #f5f5f4; --shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f0f10; --surface: #18181a; --text: #ececec; --muted: #9a9a9f; --line: #2a2a2e;
+    --accent: #6b9bff; --accent-soft: #1b2438; --hover: #202023; --shadow: none;
+  }
+}
+* { box-sizing: border-box; }
+html { color-scheme: light dark; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px 64px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 32px 0 20px; }
+h1 { font-size: 20px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
+.sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+button, select {
+  font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 12px; cursor: pointer; box-shadow: var(--shadow);
+}
+button:hover, select:hover { background: var(--hover); }
+button:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { filter: brightness(1.08); }
+nav { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 28px; overflow-x: auto; }
+nav button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; box-shadow: none; color: var(--muted); padding: 10px 14px; white-space: nowrap; }
+nav button:hover { color: var(--text); background: none; }
+nav button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 32px 0 12px; }
+h2:first-child { margin-top: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; box-shadow: var(--shadow); }
+.grid { display: grid; gap: 12px; }
+.stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.stat .k { color: var(--muted); font-size: 12px; }
+.stat .v { font-size: 24px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.stat .s { color: var(--muted); font-size: 12px; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; border-radius: 0; box-shadow: none; padding: 6px 12px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.spacer { flex: 1; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 10px 12px; text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-weight: 500; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; border-bottom: 1px solid var(--line); }
+th:hover { color: var(--text); }
+th .arr { opacity: .8; }
+tbody tr { cursor: pointer; border-bottom: 1px solid var(--line); }
+tbody tr:last-child { border-bottom: 0; }
+tbody tr:hover { background: var(--hover); }
+td.best { font-weight: 600; color: var(--accent); }
+td.name { font-weight: 500; }
+.bars { display: grid; gap: 10px; }
+.bar { display: grid; grid-template-columns: 150px 1fr 56px; gap: 12px; align-items: center; font-size: 13px; }
+.bar .track { height: 8px; background: var(--hover); border-radius: 99px; overflow: hidden; }
+.bar .fill { height: 100%; background: var(--accent); border-radius: 99px; }
+.bar .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 13px; border-radius: 99px; box-shadow: none; }
+.chip i, .tip i, .legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.chip[aria-pressed="false"] { opacity: .45; }
+.chart { position: relative; }
+.chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart .grid-l { stroke: var(--line); stroke-width: 1; }
+.chart text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+.chart .guide { stroke: var(--muted); stroke-dasharray: 3 3; }
+.tip { position: absolute; top: 8px; display: none; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.12); z-index: 2; min-width: 130px; }
+.tip div { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tip span { margin-left: auto; padding-left: 12px; font-variant-numeric: tabular-nums; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.cm { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; font-size: 13px; align-items: stretch; }
+.cm .h { color: var(--muted); font-size: 12px; display: flex; align-items: center; justify-content: center; padding: 2px 6px; text-align: center; }
+.cm .c { border-radius: 8px; padding: 14px 8px; text-align: center; background: var(--hover); }
+.cm .c b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.cm .c small { color: var(--muted); }
+.cm .c.ok { background: var(--accent-soft); }
+.gallery { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.gallery figure { margin: 0; }
+.gallery img, .full img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--line); cursor: zoom-in; background: #fff; }
+.gallery figcaption { color: var(--muted); font-size: 12px; margin-top: 6px; }
+details { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); margin-bottom: 8px; }
+details > summary { padding: 10px 14px; cursor: pointer; list-style: none; display: flex; gap: 10px; align-items: center; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: "›"; color: var(--muted); transition: transform .15s; }
+details[open] > summary::before { transform: rotate(90deg); }
+details .meta { color: var(--muted); font-size: 12px; margin-left: auto; }
+pre { margin: 0; padding: 14px; border-top: 1px solid var(--line); overflow: auto; max-height: 460px; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.jk { color: var(--accent); } .js { color: #16a34a; } .jn { color: #d97706; } .jb { color: #9333ea; }
+@media (prefers-color-scheme: dark) { .js { color: #4ade80; } .jn { color: #fbbf24; } .jb { color: #c084fc; } }
+.empty { text-align: center; color: var(--muted); padding: 72px 16px; }
+.empty h3 { color: var(--text); font-size: 17px; font-weight: 600; margin: 0 0 6px; }
+.empty code { background: var(--hover); padding: 2px 6px; border-radius: 6px; font-size: 12px; }
+.empty .actions { margin: 20px 0 8px; }
+dialog { border: 0; background: transparent; padding: 0; max-width: 94vw; max-height: 94vh; }
+dialog::backdrop { background: rgba(0,0,0,.72); }
+dialog img { max-width: 94vw; max-height: 90vh; border-radius: 10px; background: #fff; display: block; }
+.note { color: var(--muted); font-size: 12px; margin-top: 8px; }
+@media (max-width: 560px) { .bar { grid-template-columns: 96px 1fr 48px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>ISIC-2019 · Resultados</h1>
+      <div class="sub" id="status">Nenhuma pasta carregada</div>
+    </div>
+    <div>
+      <input type="file" id="picker" webkitdirectory multiple hidden>
+      <button class="primary" id="open">Abrir pasta outputs</button>
+    </div>
+  </header>
+  <nav id="tabs" role="tablist"></nav>
+  <main id="main"></main>
+</div>
+<dialog id="lb"><img alt=""></dialog>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- utilidades ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const num = (v, d = 3) => (v == null || Number.isNaN(v)) ? '—' : Number(v).toFixed(d).replace('.', ',');
+const PALETTE = ['#2563eb', '#ea580c', '#16a34a', '#9333ea', '#db2777', '#0891b2', '#ca8a04', '#64748b', '#dc2626', '#0d9488', '#4f46e5', '#65a30d'];
+
+const COLS = [
+  ['auc', 'AUC'], ['balanced_accuracy', 'Acc. bal.'], ['sensitivity', 'Sensib.'],
+  ['specificity', 'Especif.'], ['precision', 'Precisão'], ['f1', 'F1'], ['threshold', 'Limiar'],
+];
+const THR = { test_youden: 'Limiar de Youden', 'test_0.5': 'Limiar 0,5' };
+const CURVES = {
+  val_auc: ['AUC (validação)', v => v.toFixed(3)],
+  val_bacc: ['Acc. balanceada (validação)', v => v.toFixed(3)],
+  val_loss: ['Loss (validação)', v => v.toFixed(3)],
+  train_loss: ['Loss (treino)', v => v.toFixed(3)],
+  lr: ['Learning rate', v => v.toExponential(1)],
+};
+const TABS = [['overview', 'Visão geral'], ['curves', 'Curvas'], ['models', 'Modelos'], ['files', 'Arquivos']];
+
+const S = {
+  src: null, urls: {}, models: [], metrics: {}, hist: {}, color: {},
+  thr: 'test_youden', sort: { key: 'auc', dir: -1 }, barKey: 'auc',
+  curve: 'val_auc', sel: new Set(), current: null, tab: 'overview',
+};
+
+/* ---------- fontes de dados ---------- */
+// "files": pasta escolhida no navegador (sem servidor). "server": ../outputs/ servido via http.
+function fromFileList(list) {
+  const files = new Map();
+  for (const f of list) {
+    if (!/\.(json|png|txt)$/i.test(f.name)) continue;
+    let parts = f.webkitRelativePath.split('/').slice(1);
+    if (parts[0] === 'outputs') parts = parts.slice(1);   // se o usuário escolheu a raiz do projeto
+    files.set(parts.join('/'), f);
+  }
+  const root = list[0] ? list[0].webkitRelativePath.split('/')[0] : 'pasta';
+  return { kind: 'files', files, label: root };
+}
+
+async function tryServer() {
+  if (location.protocol === 'file:') return null;
+  const base = new URL('../outputs/', location.href).href;
+  try {
+    const r = await fetch(base + 'summary.json', { cache: 'no-store' });
+    if (!r.ok) return null;
+    return { kind: 'server', base, models: Object.keys(await r.json()), label: 'outputs/' };
+  } catch { return null; }
+}
+
+const has = p => S.src.kind === 'files' ? S.src.files.has(p) : true;
+async function getText(p) {
+  try {
+    if (S.src.kind === 'files') { const f = S.src.files.get(p); return f ? await f.text() : null; }
+    const r = await fetch(S.src.base + p, { cache: 'no-store' });
+    return r.ok ? await r.text() : null;
+  } catch { return null; }
+}
+async function getJSON(p) {
+  const t = await getText(p);
+  if (t == null) return null;
+  try { return JSON.parse(t); } catch { return null; }
+}
+function urlFor(p) {
+  if (S.src.kind === 'server') return S.src.base + p;
+  const f = S.src.files.get(p);
+  return f ? (S.urls[p] ||= URL.createObjectURL(f)) : null;
+}
+
+async function load(src) {
+  Object.values(S.urls).forEach(URL.revokeObjectURL);
+  S.urls = {}; S.src = src;
+  let names = src.models;
+  if (src.kind === 'files') {
+    const set = new Set();
+    for (const p of src.files.keys()) { const m = p.match(/^([^/]+)\/(metrics|history)\.json$/); if (m) set.add(m[1]); }
+    names = [...set];
+  }
+  S.metrics = {}; S.hist = {};
+  await Promise.all(names.map(async m => {
+    S.metrics[m] = await getJSON(`${m}/metrics.json`);
+    S.hist[m] = await getJSON(`${m}/history.json`);
+  }));
+  const auc = m => S.metrics[m]?.test_youden?.auc ?? -1;
+  S.models = names.filter(m => S.metrics[m] || S.hist[m]).sort((a, b) => auc(b) - auc(a));
+  S.models.forEach((m, i) => S.color[m] = PALETTE[i % PALETTE.length]);
+  S.sel = new Set(S.models);
+  S.current = S.models[0] || null;
+  $('#status').textContent = S.models.length
+    ? `${src.label} · ${S.models.length} modelo${S.models.length > 1 ? 's' : ''}`
+    : `${src.label} · nenhum resultado encontrado`;
+  render();
+}
+
+/* ---------- gráfico de linhas (SVG) ---------- */
+function lineChart(series, { height = 300, yFmt = v => v.toFixed(2), legend = true } = {}) {
+  const wrap = document.createElement('div');
+  wrap.className = 'chart';
+  const vals = series.flatMap(s => s.values.filter(Number.isFinite));
+  if (!vals.length) { wrap.innerHTML = '<div class="empty">Sem dados</div>'; return wrap; }
+  const W = 720, H = height, m = { l: 48, r: 12, t: 10, b: 26 };
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (lo === hi) { lo -= .5; hi += .5; }
+  const pad = (hi - lo) * .08; lo -= pad; hi += pad;
+  const n = Math.max(...series.map(s => s.values.length));
+  const x = i => m.l + (n <= 1 ? .5 : i / (n - 1)) * (W - m.l - m.r);
+  const y = v => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b);
+
+  let g = '';
+  for (let k = 0; k <= 4; k++) {
+    const v = lo + (hi - lo) * k / 4;
+    g += `<line class="grid-l" x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}"/><text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end">${yFmt(v)}</text>`;
+  }
+  const step = Math.max(1, Math.ceil(n / 8));
+  for (let i = 0; i < n; i += step) g += `<text x="${x(i)}" y="${H - 6}" text-anchor="middle">${i + 1}</text>`;
+  for (const s of series) {
+    const pts = s.values.map((v, i) => Number.isFinite(v) ? [x(i), y(v)] : null).filter(Boolean);
+    g += `<polyline fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" points="${pts.map(p => p.join(',')).join(' ')}"/>`;
+    if (n <= 40) g += pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="${s.color}"/>`).join('');
+  }
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img">${g}<line class="guide" y1="${m.t}" y2="${H - m.b}" style="display:none"/></svg><div class="tip"></div>`
+    + (legend ? `<div class="legend">${series.map(s => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('')}</div>` : '');
+
+  const svg = $('svg', wrap), guide = $('.guide', wrap), tip = $('.tip', wrap);
+  wrap.addEventListener('mousemove', ev => {
+    const r = svg.getBoundingClientRect();
+    const px = (ev.clientX - r.left) / r.width * W;
+    const i = Math.max(0, Math.min(n - 1, Math.round((px - m.l) / (W - m.l - m.r) * (n - 1))));
+    guide.setAttribute('x1', x(i)); guide.setAttribute('x2', x(i)); guide.style.display = '';
+    tip.innerHTML = `<b>Época ${i + 1}</b>` + series.map(s => Number.isFinite(s.values[i])
+      ? `<div><i style="background:${s.color}"></i>${esc(s.name)}<span>${yFmt(s.values[i])}</span></div>` : '').join('');
+    tip.style.display = 'block';
+    const left = x(i) / W * r.width;
+    tip.style.left = (left > r.width / 2 ? left - tip.offsetWidth - 12 : left + 12) + 'px';
+  });
+  wrap.addEventListener('mouseleave', () => { guide.style.display = 'none'; tip.style.display = 'none'; });
+  return wrap;
+}
+
+/* ---------- JSON ---------- */
+function trunc(v) {
+  if (Array.isArray(v)) return v.length > 40 ? [...v.slice(0, 20).map(trunc), `… +${v.length - 20} itens`] : v.map(trunc);
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, trunc(x)]));
+  return v;
+}
+function highlight(obj) {
+  return esc(JSON.stringify(trunc(obj), null, 2)).replace(
+    /("(?:[^"\\]|\\.)*")(\s*:)?|(-?\d+\.?\d*(?:[eE][+-]?\d+)?)|\b(true|false|null)\b/g,
+    (_, s, colon, n, b) => s ? (colon ? `<span class="jk">${s}</span>${colon}` : `<span class="js">${s}</span>`)
+      : n ? `<span class="jn">${n}</span>` : `<span class="jb">${b}</span>`);
+}
+async function combined() {
+  const out = { origem: S.src.label, modelos: {} };
+  for (const m of S.models) out.modelos[m] = { ...(S.metrics[m] || {}), historico: S.hist[m] || null };
+  const sp = await getJSON('split.json');
+  if (sp) out.split = Object.fromEntries(Object.entries(sp).map(([k, v]) => [k, Array.isArray(v) ? v.length : v]));
+  return out;
+}
+
+/* ---------- views ---------- */
+const rowsData = () => S.models.map(m => ({ m, params: S.metrics[m]?.params, ...(S.metrics[m]?.[S.thr] || {}) }));
+
+function thrToggle() {
+  return `<div class="seg">${Object.entries(THR).map(([k, l]) =>
+    `<button data-act="thr" data-v="${k}" aria-pressed="${S.thr === k}">${l}</button>`).join('')}</div>`;
+}
+
+function viewOverview() {
+  const rows = rowsData();
+  const best = k => rows.reduce((a, r) => (r[k] ?? -1) > (a?.[k] ?? -1) ? r : a, null);
+  const bAuc = best('auc'), bSens = best('sensitivity'), bSpec = best('specificity');
+  const stat = (k, r, key) => `<div class="card stat"><div class="k">${k}</div><div class="v">${r ? num(r[key]) : '—'}</div><div class="s">${r ? esc(r.m) : ''}</div></div>`;
+
+  const sorted = [...rows].sort((a, b) => {
+    const k = S.sort.key, va = k === 'm' ? a.m : (a[k] ?? -Infinity), vb = k === 'm' ? b.m : (b[k] ?? -Infinity);
+    return (va < vb ? -1 : va > vb ? 1 : 0) * S.sort.dir;
+  });
+  const bestOf = Object.fromEntries(COLS.filter(c => c[0] !== 'threshold').map(([k]) => [k, Math.max(...rows.map(r => r[k] ?? -1))]));
+  const arrow = k => S.sort.key === k ? `<span class="arr"> ${S.sort.dir < 0 ? '↓' : '↑'}</span>` : '';
+  const head = `<tr><th data-act="sort" data-k="m">Modelo${arrow('m')}</th>${COLS.map(([k, l]) =>
+    `<th data-act="sort" data-k="${k}">${l}${arrow(k)}</th>`).join('')}<th data-act="sort" data-k="params">Params${arrow('params')}</th></tr>`;
+  const body = sorted.map(r => `<tr data-act="open" data-m="${esc(r.m)}"><td class="name">${esc(r.m)}</td>${COLS.map(([k]) =>
+    `<td class="${k !== 'threshold' && r[k] === bestOf[k] ? 'best' : ''}">${num(r[k])}</td>`).join('')}<td>${r.params != null ? (r.params / 1e6).toFixed(1).replace('.', ',') + ' M' : '—'}</td></tr>`).join('');
+
+  const bk = S.barKey, bars = [...rows].sort((a, b) => (b[bk] ?? 0) - (a[bk] ?? 0)).map(r =>
+    `<div class="bar"><span>${esc(r.m)}</span><div class="track"><div class="fill" style="width:${Math.max(0, Math.min(1, r[bk] ?? 0)) * 100}%"></div></div><span class="val">${num(r[bk])}</span></div>`).join('');
+
+  return `
+    <div class="toolbar"><span class="sub">Métricas no conjunto de teste</span><span class="spacer"></span>${thrToggle()}</div>
+    <div class="grid stats">
+      <div class="card stat"><div class="k">Modelos</div><div class="v">${rows.length}</div><div class="s">avaliados</div></div>
+      ${stat('Melhor AUC', bAuc, 'auc')}${stat('Maior sensibilidade', bSens, 'sensitivity')}${stat('Maior especificidade', bSpec, 'specificity')}
+    </div>
+    <h2>Comparação</h2>
+    <div class="card tablewrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
+    <h2>Ranking por métrica</h2>
+    <div class="card">
+      <div class="toolbar"><select data-sel="bar">${COLS.filter(c => c[0] !== 'threshold').map(([k, l]) => `<option value="${k}" ${k === bk ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      <div class="bars">${bars}</div>
+    </div>
+    ${has('comparison.png') ? `<h2>Gráfico do projeto</h2><div class="card full"><img data-act="zoom" src="${urlFor('comparison.png')}" alt="Comparação entre modelos" onerror="this.closest('.card').previousElementSibling.remove();this.closest('.card').remove()"></div>` : ''}`;
+}
+
+function viewCurves() {
+  const chips = S.models.filter(m => S.hist[m]).map(m =>
+    `<button class="chip" data-act="chip" data-m="${esc(m)}" aria-pressed="${S.sel.has(m)}"><i style="background:${S.color[m]}"></i>${esc(m)}</button>`).join('');
+  return `
+    <div class="toolbar">
+      <select data-sel="curve">${Object.entries(CURVES).map(([k, [l]]) => `<option value="${k}" ${k === S.curve ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <div class="chips">${chips}</div>
+    </div>
+    <div class="card" id="curve-host"></div>
+    <p class="note">Passe o mouse sobre o gráfico para ver o valor de cada modelo por época.</p>`;
+}
+function mountCurves() {
+  const host = $('#curve-host'); if (!host) return;
+  const [, fmt] = CURVES[S.curve];
+  const series = S.models.filter(m => S.sel.has(m) && S.hist[m]?.[S.curve]).map(m => ({ name: m, color: S.color[m], values: S.hist[m][S.curve] }));
+  host.replaceChildren(lineChart(series, { height: 360, yFmt: fmt }));
+}
+
+function viewModels() {
+  const m = S.current;
+  if (!m) return '<div class="empty">Sem modelos.</div>';
+  const t = S.metrics[m]?.[S.thr], h = S.hist[m];
+  const cards = t ? [['AUC', t.auc], ['Acc. balanceada', t.balanced_accuracy], ['Sensibilidade', t.sensitivity],
+    ['Especificidade', t.specificity], ['Precisão', t.precision], ['F1', t.f1], ['Acurácia', t.accuracy], ['Limiar', t.threshold]]
+    .map(([k, v]) => `<div class="card stat"><div class="k">${k}</div><div class="v">${num(v)}</div></div>`).join('') : '';
+  let cm = '';
+  if (t?.confusion) {
+    const [[tn, fp], [fn, tp]] = t.confusion, r0 = (tn + fp) || 1, r1 = (fn + tp) || 1;
+    const c = (v, r, ok) => `<div class="c ${ok ? 'ok' : ''}"><b>${v}</b><small>${(v / r * 100).toFixed(1).replace('.', ',')}%</small></div>`;
+    cm = `<div class="cm"><div></div><div class="h">previsto benigno</div><div class="h">previsto maligno</div>
+      <div class="h">real benigno</div>${c(tn, r0, 1)}${c(fp, r0)}<div class="h">real maligno</div>${c(fn, r1)}${c(tp, r1, 1)}</div>`;
+  }
+  let hist = '', info = '';
+  if (h?.val_auc?.length) {
+    const bi = h.val_auc.indexOf(Math.max(...h.val_auc));
+    info = `<div class="grid stats" style="margin-top:12px">
+      <div class="card stat"><div class="k">Épocas executadas</div><div class="v">${h.val_auc.length}</div></div>
+      <div class="card stat"><div class="k">Melhor época</div><div class="v">${bi + 1}</div></div>
+      <div class="card stat"><div class="k">Melhor AUC (val)</div><div class="v">${num(h.val_auc[bi])}</div></div>
+      <div class="card stat"><div class="k">Parâmetros</div><div class="v">${S.metrics[m]?.params != null ? (S.metrics[m].params / 1e6).toFixed(1).replace('.', ',') + ' M' : '—'}</div></div></div>`;
+    hist = `<h2>Treinamento</h2><div class="grid two">
+      <div class="card"><div class="sub">Loss</div><div id="h-loss"></div></div>
+      <div class="card"><div class="sub">Validação</div><div id="h-val"></div></div></div>`;
+  }
+  const imgs = [['history.png', 'Curvas de treino'], ['roc.png', 'Curva ROC'], ['confusion.png', 'Matriz de confusão']]
+    .filter(([p]) => has(`${m}/${p}`)).map(([p, l]) =>
+      `<figure><img data-act="zoom" src="${urlFor(`${m}/${p}`)}" alt="${l}" onerror="this.closest('figure').remove()" loading="lazy"><figcaption>${l}</figcaption></figure>`).join('');
+
+  return `
+    <div class="toolbar">
+      <select data-sel="model">${S.models.map(x => `<option ${x === m ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
+      <span class="spacer"></span>${thrToggle()}
+    </div>
+    <div class="grid stats">${cards}</div>${info}
+    <div class="grid two" style="margin-top:12px">${cm ? `<div class="card"><div class="sub" style="margin-bottom:10px">Matriz de confusão (teste)</div>${cm}</div>` : ''}</div>
+    ${hist}
+    ${imgs ? `<h2>Imagens geradas</h2><div class="grid gallery">${imgs}</div>` : ''}
+    ${has(`${m}/summary.txt`) ? `<h2>Arquitetura</h2><details data-lazy="${esc(m)}/summary.txt"><summary>torchinfo summary</summary><pre></pre></details>` : ''}`;
+}
+function mountModels() {
+  const m = S.current, h = S.hist[m]; if (!h) return;
+  const mk = (id, keys) => { const host = $(id); if (!host) return;
+    host.replaceChildren(lineChart(keys.map(([k, name, color]) => ({ name, color, values: h[k] || [] })), { height: 240, yFmt: v => v.toFixed(2) })); };
+  mk('#h-loss', [['train_loss', 'treino', PALETTE[0]], ['val_loss', 'validação', PALETTE[1]]]);
+  mk('#h-val', [['val_auc', 'AUC', PALETTE[0]], ['val_bacc', 'Acc. bal.', PALETTE[2]]]);
+}
+
+function viewFiles() {
+  let paths;
+  if (S.src.kind === 'files') paths = [...S.src.files.keys()].filter(p => p.endsWith('.json')).sort();
+  else paths = ['summary.json', 'split.json', ...S.models.flatMap(m => [`${m}/metrics.json`, `${m}/history.json`])];
+  return `
+    <div class="toolbar"><span class="sub">Todos os .json carregados, abertos sob demanda</span><span class="spacer"></span>
+      <button data-act="download">Baixar JSON combinado</button></div>
+    <details data-lazy="::combined"><summary>combinado.json<span class="meta">métricas + histórico de todos os modelos</span></summary><pre></pre></details>
+    ${paths.map(p => `<details data-lazy="${esc(p)}"><summary>${esc(p)}</summary><pre></pre></details>`).join('')}`;
+}
+
+function viewEmpty() {
+  return `<div class="empty"><h3>Nenhum resultado carregado</h3>
+    <p>Escolha a pasta <code>outputs</code> gerada pelo <code>main.py</code> (ou a raiz do projeto).</p>
+    <div class="actions"><button class="primary" data-act="pick">Abrir pasta outputs</button></div>
+    <p class="note">Dica: sirva o projeto com <code>python -m http.server</code> e abra <code>/viewer/</code> para carregar automaticamente.</p></div>`;
+}
+
+/* ---------- render ---------- */
+function render() {
+  $('#tabs').innerHTML = TABS.map(([k, l]) => `<button role="tab" data-act="tab" data-t="${k}" aria-selected="${S.tab === k}">${l}</button>`).join('');
+  const main = $('#main');
+  if (!S.src || !S.models.length) { main.innerHTML = viewEmpty(); return; }
+  main.innerHTML = { overview: viewOverview, curves: viewCurves, models: viewModels, files: viewFiles }[S.tab]();
+  if (S.tab === 'curves') mountCurves();
+  if (S.tab === 'models') mountModels();
+}
+
+/* ---------- eventos ---------- */
+$('#open').onclick = () => $('#picker').click();
+$('#picker').onchange = e => { if (e.target.files.length) load(fromFileList(e.target.files)); e.target.value = ''; };
+
+$('#main').addEventListener('click', e => {
+  const t = e.target.closest('[data-act]'); if (!t) return;
+  const d = t.dataset;
+  switch (d.act) {
+    case 'pick': $('#picker').click(); return;
+    case 'sort': S.sort = { key: d.k, dir: S.sort.key === d.k ? -S.sort.dir : (d.k === 'm' ? 1 : -1) }; break;
+    case 'open': S.current = d.m; S.tab = 'models'; break;
+    case 'thr': S.thr = d.v; break;
+    case 'chip': S.sel.has(d.m) ? S.sel.delete(d.m) : S.sel.add(d.m); break;
+    case 'zoom': $('#lb img').src = t.src; $('#lb').showModal(); return;
+    case 'download': combined().then(o => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(o, null, 2)], { type: 'application/json' }));
+      a.download = 'resultados_combinados.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }); return;
+    default: return;
+  }
+  render();
+});
+$('#tabs').addEventListener('click', e => {
+  const t = e.target.closest('[data-act="tab"]'); if (!t) return;
+  S.tab = t.dataset.t; render();
+});
+$('#main').addEventListener('change', e => {
+  const s = e.target.dataset.sel; if (!s) return;
+  if (s === 'bar') S.barKey = e.target.value;
+  if (s === 'curve') S.curve = e.target.value;
+  if (s === 'model') S.current = e.target.value;
+  render();
+});
+$('#main').addEventListener('toggle', async e => {
+  const d = e.target; if (!d.dataset?.lazy || !d.open) return;
+  const pre = $('pre', d); if (pre.dataset.done) return;
+  pre.dataset.done = 1;
+  const p = d.dataset.lazy;
+  if (p === '::combined') { pre.innerHTML = highlight(await combined()); return; }
+  if (p.endsWith('.txt')) { const t = await getText(p); pre.textContent = t ?? 'Arquivo não encontrado.'; return; }
+  const j = await getJSON(p);
+  pre.innerHTML = j == null ? 'Arquivo não encontrado ou inválido.' : highlight(j);
+  const meta = document.createElement('span'); meta.className = 'meta';
+  meta.textContent = Array.isArray(j) ? `${j.length} itens` : (j && typeof j === 'object' ? `${Object.keys(j).length} chaves` : '');
+  $('summary', d).append(meta);
+}, true);
+$('#lb').addEventListener('click', () => $('#lb').close());
+
+/* ---------- início ---------- */
+render();
+tryServer().then(src => src && load(src));
+})();
+</script>
+</body>
+</html>
