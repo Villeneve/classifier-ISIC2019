@@ -91,6 +91,9 @@ td.name { font-weight: 500; }
 .chart .hit:hover { fill: var(--text); fill-opacity: .05; }
 .chart .legend { margin: 0 0 12px; }
 .chart .legend i { border-radius: 2px; }
+.legend button { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 10px; border-radius: 99px; box-shadow: none; }
+.legend button[aria-pressed="false"] { color: var(--muted); text-decoration: line-through; }
+.legend button[aria-pressed="false"] i { opacity: .3; }
 .two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 .cm { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; font-size: 13px; align-items: stretch; }
 .cm .h { color: var(--muted); font-size: 12px; display: flex; align-items: center; justify-content: center; padding: 2px 6px; text-align: center; }
@@ -166,7 +169,7 @@ const TABS = [['overview', 'Visão geral'], ['curves', 'Curvas'], ['models', 'Mo
 const S = {
   src: null, urls: {}, models: [], metrics: {}, hist: {}, color: {},
   thr: 'test_youden', sort: { key: 'auc', dir: -1 }, barKey: 'auc',
-  curve: 'val_auc', sel: new Set(), current: null, tab: 'overview',
+  curve: 'val_auc', sel: new Set(), current: null, tab: 'overview', hidden: new Set(),
 };
 
 /* ---------- fontes de dados ---------- */
@@ -290,7 +293,8 @@ function barChart(rows, width, height = 340) {
   const wrap = document.createElement('div');
   wrap.className = 'chart';
   if (!rows.length) { wrap.innerHTML = '<div class="empty">Sem dados</div>'; return wrap; }
-  const series = BAR_KEYS.map((k, i) => ({ k, name: COLS.find(c => c[0] === k)[1], color: `var(--s${i + 1})` }));
+  const all = BAR_KEYS.map((k, i) => ({ k, name: COLS.find(c => c[0] === k)[1], color: `var(--s${i + 1})` }));
+  const series = all.filter(s => !S.hidden.has(s.k));   // métricas ligadas na legenda
   const m = { l: 36, r: 4, t: 8, b: 28 };
   const longest = Math.max(...rows.map(r => r.m.length)) * 6.4;
   // Cada grupo tem no mínimo 76px; se não couber, o gráfico rola na horizontal.
@@ -322,14 +326,14 @@ function barChart(rows, width, height = 340) {
   });
   rows.forEach((r, i) => g += `<rect class="hit" data-act="open" data-m="${esc(r.m)}" data-i="${i}" x="${m.l + i * group}" y="${m.t}" width="${group}" height="${height - m.t}" style="cursor:pointer"/>`);
 
-  wrap.innerHTML = `<div class="legend">${series.map(s => `<span><i style="background:${s.color}"></i>${s.name}</span>`).join('')}</div>`
+  wrap.innerHTML = `<div class="legend">${all.map(s => `<button data-act="metric" data-k="${s.k}" aria-pressed="${!S.hidden.has(s.k)}"><i style="background:${s.color}"></i>${s.name}</button>`).join('')}</div>`
     + `<div class="scroll"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Métricas de teste por modelo">${g}</svg></div><div class="tip"></div>`;
 
   const tip = $('.tip', wrap), scroll = $('.scroll', wrap);
   const hide = () => tip.style.display = 'none';
   wrap.addEventListener('mousemove', ev => {
     const i = ev.target.dataset?.i;
-    if (i == null) return hide();
+    if (i == null || !series.length) return hide();
     const r = rows[i];
     tip.innerHTML = `<b>${esc(r.m)}</b>` + series.map(s => `<div><i style="background:${s.color}"></i>${s.name}<span>${num(r[s.k])}</span></div>`).join('');
     tip.style.display = 'block';
@@ -406,7 +410,7 @@ function viewOverview() {
     </div>
     <h2>Gráfico do projeto</h2>
     <div class="card" id="bar-host"></div>
-    <p class="note">${THR[S.thr]} · passe o mouse para ver os valores; clique em um modelo para abrir os detalhes.</p>`;
+    <p class="note">${THR[S.thr]} · clique em uma métrica da legenda para ligar ou desligar a barra; clique em um modelo para abrir os detalhes.</p>`;
 }
 function mountOverview() {
   const host = $('#bar-host'); if (!host) return;
@@ -414,7 +418,9 @@ function mountOverview() {
   const width = host.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
   // Mesma ordem do main.py: AUC decrescente.
   const rows = rowsData().filter(r => BAR_KEYS.some(k => Number.isFinite(r[k]))).sort((a, b) => (b.auc ?? -1) - (a.auc ?? -1));
+  const left = $('.scroll', host)?.scrollLeft || 0;
   host.replaceChildren(barChart(rows, width));
+  const scroll = $('.scroll', host); if (scroll) scroll.scrollLeft = left;
 }
 
 function viewCurves() {
@@ -525,6 +531,9 @@ $('#main').addEventListener('click', e => {
     case 'sort': S.sort = { key: d.k, dir: S.sort.key === d.k ? -S.sort.dir : (d.k === 'm' ? 1 : -1) }; break;
     case 'open': S.current = d.m; S.tab = 'models'; break;
     case 'thr': S.thr = d.v; break;
+    case 'metric':   // redesenha só o gráfico, mantendo a rolagem e o foco
+      S.hidden.has(d.k) ? S.hidden.delete(d.k) : S.hidden.add(d.k);
+      mountOverview(); $(`[data-act="metric"][data-k="${d.k}"]`).focus({ preventScroll: true }); return;
     case 'chip': S.sel.has(d.m) ? S.sel.delete(d.m) : S.sel.add(d.m); break;
     case 'zoom': $('#lb img').src = t.src; $('#lb').showModal(); return;
     case 'download': combined().then(o => {

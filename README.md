@@ -95,7 +95,7 @@ mais lentos do que seus GFLOPs sugerem. A ordem é uma referência, não um benc
 
 ## Visualizador de resultados (`viewer/index.html`)
 Página única (sem dependências) para explorar o que o `main.py` gera em `outputs/`: tabela comparativa
-ordenável, ranking por métrica, gráfico de barras por modelo (gerado dos `.json`), curvas por época sobrepostas, detalhe por modelo (métricas, matriz de
+ordenável, ranking por métrica, gráfico de barras por modelo (gerado dos `.json`, com métricas liga/desliga na legenda), curvas por época sobrepostas, detalhe por modelo (métricas, matriz de
 confusão, imagens `history/roc/confusion.png`, torchinfo), visualização dos `.json` e download de um
 **JSON combinado** com métricas e histórico de todos os modelos.
 
