@@ -2,7 +2,8 @@
 
 Exemplos (dataset em ./ISIC-2019, GPU 1 por padrão; o cache de imagens é criado na 1ª execução):
     python main.py --models resnet50 --epochs 1 --subset 200   # smoke test
-    python main.py                                             # todas as arquiteturas
+    python main.py                                             # modelos padrão
+    python main.py --all                                       # todos os modelos disponíveis
     python main.py --gpu 0                                     # usa outra GPU
 """
 import argparse
@@ -17,12 +18,13 @@ os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
 import torch
 from torchinfo import summary
 
-from config import ALL_MODELS, AVAILABLE_MODELS, Config
+from config import AVAILABLE_MODELS, DEFAULT_MODELS, Config
 from data.dataset import make_loaders
 from engine.metrics import compute_metrics, roc_auc, roc_curve, youden_threshold
 from engine.train import fit, predict
 from models.factory import build_model
 from utils.plots import plot_comparison, plot_confusion, plot_history, plot_roc
+from utils.results import merge_summary
 from utils.seed import set_seed
 
 
@@ -31,7 +33,9 @@ def parse_args():
     ap.add_argument("--data-root", default=Config.data_root)
     ap.add_argument("--gpu", type=int, default=Config.gpu, help="índice da GPU (padrão 1 = RTX 5060 Ti)")
     ap.add_argument("--out-dir", default=Config.out_dir)
-    ap.add_argument("--models", nargs="+", default=ALL_MODELS, choices=AVAILABLE_MODELS)
+    which = ap.add_mutually_exclusive_group()
+    which.add_argument("--models", nargs="+", default=DEFAULT_MODELS, choices=AVAILABLE_MODELS)
+    which.add_argument("--all", action="store_true", help="treina todos os modelos disponíveis")
     ap.add_argument("--epochs", type=int, default=Config.epochs)
     ap.add_argument("--lr", type=float, default=Config.lr)
     ap.add_argument("--patience", type=int, default=Config.patience)
@@ -49,7 +53,8 @@ def parse_args():
     ap.add_argument("--compile", action="store_true")
     ap.add_argument("--seed", type=int, default=Config.seed)
     a = ap.parse_args()
-    return Config(data_root=a.data_root, gpu=a.gpu, out_dir=a.out_dir, models=a.models, pretrained=not a.no_pretrained,
+    return Config(data_root=a.data_root, gpu=a.gpu, out_dir=a.out_dir,
+                  models=list(AVAILABLE_MODELS) if a.all else a.models, pretrained=not a.no_pretrained,
                   epochs=a.epochs, lr=a.lr, patience=a.patience, freeze_epochs=a.freeze_epochs,
                   num_workers=a.num_workers, cache_ram=a.cache_ram, cache_dir=a.cache_dir, rebuild_cache=a.rebuild_cache, ak=a.ak, subset=a.subset,
                   batch_size=a.batch_size, img_size=a.img_size, compile=a.compile, seed=a.seed)
@@ -108,17 +113,17 @@ def main():
     print(f"device: {device} ({name}) | torch {torch.__version__}")
     os.makedirs(cfg.out_dir, exist_ok=True)
 
-    summary_all = {}
+    done = {}
     for name in cfg.models:
-        summary_all[name] = run_model(name, cfg)
-        with open(os.path.join(cfg.out_dir, "summary.json"), "w") as f:
-            json.dump(summary_all, f, indent=2)
+        done[name] = run_model(name, cfg)
+        # Resumo e gráfico incluem também as execuções anteriores que estão na pasta.
+        table = {n: r["test_youden"] for n, r in merge_summary(cfg.out_dir, done).items()}
+        plot_comparison(table, os.path.join(cfg.out_dir, "comparison.png"))
 
-    table = {n: r["test_youden"] for n, r in summary_all.items()}
-    plot_comparison(table, os.path.join(cfg.out_dir, "comparison.png"))
-    print(f"\n{'modelo':22s} {'AUC':>6s} {'bAcc':>6s} {'Sens':>6s} {'Spec':>6s} {'F1':>6s}")
+    print("\n* = treinado nesta execução")
+    print(f"{'modelo':22s} {'AUC':>6s} {'bAcc':>6s} {'Sens':>6s} {'Spec':>6s} {'F1':>6s}")
     for n, m in sorted(table.items(), key=lambda kv: -kv[1]["auc"]):
-        print(f"{n:22s} {m['auc']:6.3f} {m['balanced_accuracy']:6.3f} "
+        print(f"{n + (' *' if n in done else ''):22s} {m['auc']:6.3f} {m['balanced_accuracy']:6.3f} "
               f"{m['sensitivity']:6.3f} {m['specificity']:6.3f} {m['f1']:6.3f}")
 
 

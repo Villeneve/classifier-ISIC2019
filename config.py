@@ -2,8 +2,8 @@
 from dataclasses import dataclass, field
 import torch
 
-# Modelos executados por padrão (sem --models).
-ALL_MODELS = [
+# Modelos executados por padrão (sem --models nem --all).
+DEFAULT_MODELS = [
     "resnet50",
     "densenet121",
     "efficientnet_b0",
@@ -13,7 +13,7 @@ ALL_MODELS = [
     "vit_b_16",
 ]
 
-# Todos os modelos aceitos por --models, em ordem ascendente de custo (GFLOPs a 224 px; ver README).
+# Todos os modelos aceitos por --models (e executados por --all), em ordem ascendente de custo (GFLOPs a 224 px; ver README).
 AVAILABLE_MODELS = [
     "mobilenet_v3_large",
     "efficientnet_b0",
@@ -46,7 +46,7 @@ class Config:
     data_root: str = "ISIC-2019"        # pasta (ou link simbólico) com train/ e test/ originais
     gpu: int = 1                        # índice da GPU (1 = RTX 5060 Ti; ordem PCI, como no nvidia-smi)
     out_dir: str = "outputs"
-    models: list = field(default_factory=lambda: list(ALL_MODELS))
+    models: list = field(default_factory=lambda: list(DEFAULT_MODELS))
     pretrained: bool = True             # pesos ImageNet (requer internet na 1ª vez)
     epochs: int = 30
     lr: float = 1e-4

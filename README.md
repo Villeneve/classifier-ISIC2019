@@ -41,15 +41,37 @@ Padrão: GPU **1** (RTX 5060 Ti). Use `--gpu 0` para a outra. O índice segue a 
 
 ## Uso
 ```bash
-# smoke test
-python main.py --models resnet50 --epochs 1 --subset 200
+# smoke test (pasta própria, para não substituir um resultado real)
+python main.py --models resnet50 --epochs 1 --subset 200 --out-dir outputs/smoke
 
-# todas as arquiteturas
+# modelos padrão (★ na tabela de arquiteturas)
 python main.py
+
+# todos os modelos disponíveis
+python main.py --all
+
+# só alguns
+python main.py --models resnet18 swin_t
 ```
 
-Opções úteis: `--gpu`, `--data-root`, `--models`, `--epochs`, `--lr`, `--patience`, `--freeze-epochs`, `--batch-size`,
+Opções úteis: `--gpu`, `--data-root`, `--models` ou `--all` (um ou outro), `--out-dir`, `--epochs`, `--lr`, `--patience`, `--freeze-epochs`, `--batch-size`,
 `--img-size`, `--num-workers`, `--ak`, `--cache-dir`, `--rebuild-cache`, `--cache-ram` (cache inteiro na RAM, ~15 GB), `--compile`, `--no-pretrained`, `--seed`.
+
+### Execuções acumuladas
+Os resultados em `outputs/` são **mantidos entre execuções**. Cada execução escreve apenas nos modelos pedidos:
+
+- um modelo treinado de novo tem os arquivos de `outputs/<modelo>/` substituídos; as outras pastas não mudam;
+- `summary.json` e `comparison.png` juntam as execuções anteriores com a atual e são atualizados ao fim de cada
+  modelo, então uma interrupção preserva o que já terminou (rode de novo só os que faltaram);
+- a tabela no terminal lista todos, marcando com `*` os treinados nesta execução.
+
+Cuidados:
+- Execuções com opções diferentes (`--ak`, `--subset`, `--seed`, `--epochs`...) aparecem lado a lado, mas podem não
+  ser comparáveis. Para separar experimentos, use `--out-dir`.
+- `split.json` descreve o split da última execução.
+- Se um novo treino for interrompido, o `best.pt` daquele modelo pode já ser o novo enquanto as métricas ainda são
+  as antigas; rode esse modelo de novo.
+- Para remover um modelo, apague a pasta dele e o `summary.json` (que é reconstruído na próxima execução).
 
 ## Estrutura
 ```
@@ -61,13 +83,15 @@ models/factory.py    modelos torchvision com cabeça de 1 logit
 engine/train.py      loop de treino/validação, early stopping, checkpoint
 engine/metrics.py    AUC, ROC, sensibilidade, especificidade, F1... (numpy)
 utils/plots.py       curvas, ROC, matriz de confusão, comparação
+utils/results.py     junta os resultados de execuções anteriores em summary.json
 utils/seed.py        reprodutibilidade
 viewer/index.html    visualizador web dos resultados (ver seção abaixo)
 ```
 
 ## Arquiteturas
 Todos usam pesos ImageNet (exigem internet na primeira execução) e se escolhem com `--models`.
-Sem `--models`, rodam os 7 modelos padrão (marcados com ★).
+Sem `--models`, rodam os 7 modelos padrão (marcados com ★); com `--all`, rodam todos os 18 da tabela
+(as variantes `_bn` contam separadamente).
 
 Em **ordem ascendente de custo computacional** (GFLOPs por imagem a 224 px, forward; valores aproximados da
 documentação do torchvision):
