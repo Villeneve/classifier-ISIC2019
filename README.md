@@ -52,13 +52,17 @@ python main.py --all
 
 # só alguns
 python main.py --models resnet18 swin_t
+
+# apaga os resultados anteriores e treina do zero (combina com --all ou --models)
+python main.py --clear --all
 ```
 
-Opções úteis: `--gpu`, `--data-root`, `--models` ou `--all` (um ou outro), `--out-dir`, `--epochs`, `--lr`, `--patience`, `--freeze-epochs`, `--batch-size`,
+Opções úteis: `--gpu`, `--data-root`, `--models` ou `--all` (um ou outro), `--clear`, `--out-dir`, `--epochs`, `--lr`, `--patience`, `--freeze-epochs`, `--batch-size`,
 `--img-size`, `--num-workers`, `--ak`, `--cache-dir`, `--rebuild-cache`, `--cache-ram` (cache inteiro na RAM, ~15 GB), `--compile`, `--no-pretrained`, `--seed`.
 
 ### Execuções acumuladas
-Os resultados em `outputs/` são **mantidos entre execuções**. Cada execução escreve apenas nos modelos pedidos:
+Os resultados em `outputs/` são **mantidos entre execuções** (exceto com `--clear`). Cada execução escreve apenas
+nos modelos pedidos:
 
 - um modelo treinado de novo tem os arquivos de `outputs/<modelo>/` substituídos; as outras pastas não mudam;
 - `summary.json` e `comparison.png` juntam as execuções anteriores com a atual e são atualizados ao fim de cada
@@ -72,6 +76,15 @@ Cuidados:
 - Se um novo treino for interrompido, o `best.pt` daquele modelo pode já ser o novo enquanto as métricas ainda são
   as antigas; rode esse modelo de novo.
 - Para remover um modelo, apague a pasta dele e o `summary.json` (que é reconstruído na próxima execução).
+
+### Limpar os resultados (`--clear`)
+`--clear` **apaga todo o conteúdo** da pasta de saída (`outputs/` ou a de `--out-dir`) e então treina. Não pede
+confirmação e não tem volta: os checkpoints `best.pt` e subpastas como `outputs/smoke/` também são apagados.
+
+- O cache de imagens (`cache/`) e o dataset não são tocados.
+- Nada é apagado se a GPU for inválida ou a pasta do dataset não existir.
+- A limpeza é recusada se a pasta contiver o projeto, o diretório atual, o dataset, o cache ou a pasta pessoal, ou
+  se não for vazia e não tiver nenhum resultado do projeto (proteção contra um `--out-dir` errado).
 
 ## Estrutura
 ```

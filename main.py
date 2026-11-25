@@ -5,6 +5,7 @@ Exemplos (dataset em ./ISIC-2019, GPU 1 por padrão; o cache de imagens é criad
     python main.py                                             # modelos padrão
     python main.py --all                                       # todos os modelos disponíveis
     python main.py --gpu 0                                     # usa outra GPU
+    python main.py --clear                                     # apaga outputs/ antes de treinar
 """
 import argparse
 import gc
@@ -24,7 +25,7 @@ from engine.metrics import compute_metrics, roc_auc, roc_curve, youden_threshold
 from engine.train import fit, predict
 from models.factory import build_model
 from utils.plots import plot_comparison, plot_confusion, plot_history, plot_roc
-from utils.results import merge_summary
+from utils.results import clear_results, merge_summary
 from utils.seed import set_seed
 
 
@@ -36,6 +37,8 @@ def parse_args():
     which = ap.add_mutually_exclusive_group()
     which.add_argument("--models", nargs="+", default=DEFAULT_MODELS, choices=AVAILABLE_MODELS)
     which.add_argument("--all", action="store_true", help="treina todos os modelos disponíveis")
+    ap.add_argument("--clear", action="store_true",
+                    help="APAGA todos os resultados de --out-dir antes de treinar (sem confirmação)")
     ap.add_argument("--epochs", type=int, default=Config.epochs)
     ap.add_argument("--lr", type=float, default=Config.lr)
     ap.add_argument("--patience", type=int, default=Config.patience)
@@ -57,7 +60,7 @@ def parse_args():
                   models=list(AVAILABLE_MODELS) if a.all else a.models, pretrained=not a.no_pretrained,
                   epochs=a.epochs, lr=a.lr, patience=a.patience, freeze_epochs=a.freeze_epochs,
                   num_workers=a.num_workers, cache_ram=a.cache_ram, cache_dir=a.cache_dir, rebuild_cache=a.rebuild_cache, ak=a.ak, subset=a.subset,
-                  batch_size=a.batch_size, img_size=a.img_size, compile=a.compile, seed=a.seed)
+                  batch_size=a.batch_size, img_size=a.img_size, compile=a.compile, seed=a.seed, clear=a.clear)
 
 
 def run_model(name, cfg):
@@ -111,6 +114,14 @@ def main():
         torch.cuda.set_device(device)
     name = torch.cuda.get_device_name(device) if device.type == "cuda" else "CPU"
     print(f"device: {device} ({name}) | torch {torch.__version__}")
+    if cfg.clear:
+        # Só apaga depois de validar a GPU e o dataset, para não perder resultados à toa.
+        if not os.path.isdir(cfg.data_root):
+            raise FileNotFoundError(f"dataset não encontrado em {cfg.data_root!r}; nada foi apagado")
+        project = os.path.dirname(os.path.abspath(__file__))
+        n = clear_results(cfg.out_dir, AVAILABLE_MODELS,
+                          protected=(project, os.getcwd(), cfg.data_root, cfg.cache_dir))
+        print(f"--clear: {n} item(ns) removido(s) de {cfg.out_dir}")
     os.makedirs(cfg.out_dir, exist_ok=True)
 
     done = {}

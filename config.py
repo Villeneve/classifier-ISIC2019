@@ -65,6 +65,7 @@ class Config:
     compile: bool = False               # torch.compile
     seed: int = 42
     val_frac: float = 0.15              # fração do treino separada para validação
+    clear: bool = False                 # apaga o conteúdo de out_dir antes de treinar
 
     @property
     def device(self):
