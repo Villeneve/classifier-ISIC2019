@@ -4,13 +4,11 @@ import torchvision.models as tvm
 
 
 def _last_linear(model):
-    """Retorna (módulo_pai, nome_do_atributo, Linear) do último nn.Linear."""
-    found = None
-    for name, mod in model.named_modules():
-        for child_name, child in mod.named_children():
-            if isinstance(child, nn.Linear):
-                found = (mod, child_name, child)
-    return found
+    """Retorna (módulo_pai, nome_do_atributo, Linear) do último nn.Linear (a cabeça)."""
+    # named_modules percorre na ordem de registro, então o último Linear da lista é a cabeça.
+    name, linear = [(n, m) for n, m in model.named_modules() if isinstance(m, nn.Linear)][-1]
+    parent, _, attr = name.rpartition(".")
+    return model.get_submodule(parent), attr, linear
 
 
 def build_model(name, pretrained=True):

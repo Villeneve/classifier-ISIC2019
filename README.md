@@ -82,11 +82,12 @@ documentação do torchvision):
 | 6 | `resnet34` | 3,7 | 21,8 M | |
 | 7 | `resnet50` ★ | 4,1 | 25,6 M | |
 | 8 | `convnext_tiny` ★ | 4,5 | 28,6 M | |
-| 9 | `vgg11` / `vgg11_bn` | 7,6 | 132,9 M | |
-| 10 | `vgg13` / `vgg13_bn` | 11,3 | 133,0 M | |
-| 11 | `vgg16` / `vgg16_bn` | 15,5 | 138,4 M | |
-| 12 | `vit_b_16` ★ | 17,6 | 86,6 M | exige 224 px |
-| 13 | `vgg19` / `vgg19_bn` | 19,6 | 143,7 M | |
+| 9 | `swin_t` | 4,5 | 28,3 M | transformer com atenção em janelas |
+| 10 | `vgg11` / `vgg11_bn` | 7,6 | 132,9 M | |
+| 11 | `vgg13` / `vgg13_bn` | 11,3 | 133,0 M | |
+| 12 | `vgg16` / `vgg16_bn` | 15,5 | 138,4 M | |
+| 13 | `vit_b_16` ★ | 17,6 | 86,6 M | exige 224 px |
+| 14 | `vgg19` / `vgg19_bn` | 19,6 | 143,7 M | |
 
 As variantes `_bn` têm BatchNorm (treinam mais estável) e custo praticamente igual. GFLOPs não é tempo de
 treino: VGG tem muitos parâmetros e usa bastante VRAM (batch padrão 32), e DenseNet/EfficientNet costumam ser

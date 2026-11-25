@@ -23,6 +23,7 @@ AVAILABLE_MODELS = [
     "resnet34",
     "resnet50",
     "convnext_tiny",
+    "swin_t",
     "vgg11", "vgg11_bn",
     "vgg13", "vgg13_bn",
     "vgg16", "vgg16_bn",
@@ -35,7 +36,7 @@ INPUT_SIZE = {"efficientnet_b3": 300}
 DEFAULT_SIZE = 224
 
 # Batch size por modelo (padrão 64) — ajustado para 16 GB de VRAM com bf16.
-BATCH_SIZE = {"efficientnet_b3": 32, "convnext_tiny": 48, "densenet121": 48,
+BATCH_SIZE = {"efficientnet_b3": 32, "convnext_tiny": 48, "swin_t": 48, "densenet121": 48,
               **{f"vgg{n}{s}": 32 for n in (11, 13, 16, 19) for s in ("", "_bn")}}  # VGG usa muita VRAM
 DEFAULT_BATCH = 64
 
