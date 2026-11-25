@@ -112,10 +112,40 @@ python -m http.server 8000     # depois abra http://localhost:8000/viewer/
 Se o treino roda em outra máquina: `ssh -L 8000:localhost:8000 usuario@servidor`, rode o servidor lá e abra
 `http://localhost:8000/viewer/` localmente (ou copie `outputs/` e use a forma 2).
 
+## Data augmentation
+Implementada em `data/augment.py` (`augment_train`), roda na GPU, só no **treino**. Cada imagem do batch recebe
+seus próprios valores aleatórios, sorteados de novo a cada época. `U(a, b)` = sorteio uniforme entre `a` e `b`.
+
+Ordem de aplicação:
+
+| # | Etapa | Valores | Probabilidade |
+|---|-------|---------|--------------:|
+| 1 | Conversão `uint8` → `float` | divisão por 255 (faixa 0–1) | sempre |
+| 2 | Redimensionamento prévio | 450 → `int(1,15 × tamanho)` (257 px para 224; 345 px para 300), bilinear com antialias | sempre |
+| 3a | Flip horizontal | espelhamento | 50% |
+| 3b | Rotação | ângulo `U(-180°, 180°)` | 100% |
+| 3c | Zoom | fração do campo de visão mantida `U(0,7, 1,0)`, ou seja, zoom de 1,0× a ≈1,43× | 100% |
+| 3d | Translação | `U(-0,1, 0,1)` em x e em y, em coordenadas de -1 a 1 (até ±5% do lado da imagem) | 100% |
+| 4 | Brilho | `x · f`, com `f = U(0,8, 1,2)` | 100% |
+| 5 | Contraste | `(x - m) · f + m`, com `m` = média da imagem (todos os canais) e `f = U(0,8, 1,2)` | 100% |
+| 6 | Saturação | `(x - g) · f + g`, com `g` = média dos canais RGB em cada pixel e `f = U(0,8, 1,2)` | 100% |
+| 7 | Recorte de valores | `clamp(0, 1)`, apenas aqui (não entre as etapas 4–6) | sempre |
+| 8 | Normalização ImageNet | média `(0,485, 0,456, 0,406)`, desvio `(0,229, 0,224, 0,225)` | sempre |
+
+- As etapas **3a–3d** formam **uma única transformação afim** (`affine_grid` + `grid_sample`), então há só uma
+  interpolação: bilinear, com preenchimento por **reflexão** nas bordas. A saída já tem o tamanho de entrada do modelo.
+- O flip é só horizontal; junto com a rotação livre, ele também cobre o espelhamento vertical.
+- O tamanho de entrada é 224 px, exceto `efficientnet_b3` (300 px); `--img-size` altera.
+- **Validação e teste** (`preprocess_eval`) não têm augmentation: divisão por 255 → redimensionamento direto para o
+  tamanho do modelo (bilinear com antialias) → normalização ImageNet.
+- Antes de tudo, o cache já deixou as imagens quadradas em 450 px (ver [Dataset](#dataset)); isso não é augmentation.
+- Não são usados: mudança de matiz (hue), blur, ruído, random erasing, MixUp, CutMix nem test-time augmentation.
+
 ## Decisões de projeto
 - **Saída de 1 logit** com `BCEWithLogitsLoss(pos_weight = n_benigno / n_maligno)` para o desbalanceamento.
 - **Augmentation na GPU**: a CPU do alvo é fraca; o DataLoader só entrega tensores uint8 e
-  rotação, flip, zoom, brilho, contraste e saturação são aplicados por amostra no batch em `cuda`.
+  rotação, flip, zoom, brilho, contraste e saturação são aplicados por amostra no batch em `cuda`
+  (detalhes em [Data augmentation](#data-augmentation)).
 - **Velocidade/memória**: bf16, `channels_last`, `cudnn.benchmark`, `torch.compile` opcional.
 - **Treino**: AdamW + CosineAnnealing, early stopping pelo AUC de validação, melhor checkpoint restaurado.
 - **Limiar**: escolhido na validação (índice de Youden) e aplicado no teste; métricas em 0,5 também são salvas.
