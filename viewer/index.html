@@ -36,6 +36,8 @@ button:hover, select:hover { background: var(--hover); }
 button:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.primary:hover { filter: brightness(1.08); }
+button:disabled { opacity: .5; cursor: default; }
+.actions-bar { display: flex; gap: 8px; flex-wrap: wrap; }
 nav { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 28px; overflow-x: auto; }
 nav button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; box-shadow: none; color: var(--muted); padding: 10px 14px; white-space: nowrap; }
 nav button:hover { color: var(--text); background: none; }
@@ -132,8 +134,9 @@ dialog img { max-width: 94vw; max-height: 90vh; border-radius: 10px; background:
       <h1>ISIC-2019 · Resultados</h1>
       <div class="sub" id="status">Nenhuma pasta carregada</div>
     </div>
-    <div>
+    <div class="actions-bar">
       <input type="file" id="picker" webkitdirectory multiple hidden>
+      <button id="snap" disabled title="Salva a página atual, com os dados, em um único arquivo .html">Salvar snapshot</button>
       <button class="primary" id="open">Abrir pasta outputs</button>
     </div>
   </header>
@@ -145,6 +148,10 @@ dialog img { max-width: 94vw; max-height: 90vh; border-radius: 10px; background:
 <script>
 (() => {
 'use strict';
+
+// Cópia da página antes de qualquer renderização: é o molde dos snapshots.
+const PAGE = document.documentElement.cloneNode(true);
+PAGE.querySelector('#snapshot')?.remove();
 
 /* ---------- utilidades ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -174,6 +181,7 @@ const S = {
 
 /* ---------- fontes de dados ---------- */
 // "files": pasta escolhida no navegador (sem servidor). "server": ../outputs/ servido via http.
+// "snapshot": dados embutidos no próprio .html (texto, ou data URL no caso das imagens).
 function fromFileList(list) {
   const files = new Map();
   for (const f of list) {
@@ -196,9 +204,10 @@ async function tryServer() {
   } catch { return null; }
 }
 
-const has = p => S.src.kind === 'files' ? S.src.files.has(p) : true;
+const has = p => S.src.kind === 'server' ? true : S.src.files.has(p);
 async function getText(p) {
   try {
+    if (S.src.kind === 'snapshot') return S.src.files.get(p) ?? null;
     if (S.src.kind === 'files') { const f = S.src.files.get(p); return f ? await f.text() : null; }
     const r = await fetch(S.src.base + p, { cache: 'no-store' });
     return r.ok ? await r.text() : null;
@@ -211,6 +220,7 @@ async function getJSON(p) {
 }
 function urlFor(p) {
   if (S.src.kind === 'server') return S.src.base + p;
+  if (S.src.kind === 'snapshot') return S.src.files.get(p) ?? null;
   const f = S.src.files.get(p);
   return f ? (S.urls[p] ||= URL.createObjectURL(f)) : null;
 }
@@ -234,6 +244,7 @@ async function load(src) {
   S.models.forEach((m, i) => S.color[m] = PALETTE[i % PALETTE.length]);
   S.sel = new Set(S.models);
   S.current = S.models[0] || null;
+  $('#snap').disabled = !S.models.length;
   $('#status').textContent = S.models.length
     ? `${src.label} · ${S.models.length} modelo${S.models.length > 1 ? 's' : ''}`
     : `${src.label} · nenhum resultado encontrado`;
@@ -367,6 +378,90 @@ async function combined() {
   return out;
 }
 
+/* ---------- snapshot (.html autossuficiente) ---------- */
+const IMAGES = ['history.png', 'roc.png', 'confusion.png'];
+const dataUrl = blob => new Promise((ok, fail) => {
+  const r = new FileReader();
+  r.onload = () => ok(r.result); r.onerror = () => fail(r.error);
+  r.readAsDataURL(blob);
+});
+async function getImage(p) {
+  try {
+    if (S.src.kind === 'snapshot') return S.src.files.get(p) ?? null;
+    if (S.src.kind === 'files') { const f = S.src.files.get(p); return f ? await dataUrl(f) : null; }
+    const r = await fetch(S.src.base + p, { cache: 'no-store' });
+    return r.ok ? await dataUrl(await r.blob()) : null;
+  } catch { return null; }
+}
+
+// Estado visual no momento da captura.
+function captureView() {
+  return {
+    tab: S.tab, thr: S.thr, sort: { ...S.sort }, barKey: S.barKey, curve: S.curve, current: S.current,
+    sel: [...S.sel], hidden: [...S.hidden],
+    open: [...document.querySelectorAll('#main details[open]')].map(d => d.dataset.lazy),
+    scrollY: window.scrollY, barScroll: $('#bar-host .scroll')?.scrollLeft || 0,
+  };
+}
+function restoreView(v) {
+  const { sel, hidden, open, scrollY, barScroll, ...rest } = v;
+  Object.assign(S, rest, { sel: new Set(sel), hidden: new Set(hidden) });
+  render();
+  document.querySelectorAll('#main details').forEach(d => { if (open.includes(d.dataset.lazy)) d.open = true; });
+  const sc = $('#bar-host .scroll'); if (sc) sc.scrollLeft = barScroll;
+  window.scrollTo(0, scrollY);
+}
+
+async function buildSnapshot() {
+  const view = captureView(), { label } = S.src, models = [...S.models];
+  const date = S.src.kind === 'snapshot' ? S.src.date : new Date().toISOString();   // data dos dados
+  const files = {};
+  const put = (p, v) => { if (v != null) files[p] = v; };
+  const jsons = S.src.kind === 'server' ? ['summary.json', 'split.json'] : [...S.src.files.keys()].filter(p => p.endsWith('.json'));
+  await Promise.all(jsons.map(async p => put(p, await getText(p))));
+  await Promise.all(models.map(async m => {
+    // métricas e histórico: exatamente os que estão em memória (os exibidos na página)
+    if (S.metrics[m]) put(`${m}/metrics.json`, JSON.stringify(S.metrics[m]));
+    if (S.hist[m]) put(`${m}/history.json`, JSON.stringify(S.hist[m]));
+    put(`${m}/summary.txt`, await getText(`${m}/summary.txt`));
+    await Promise.all(IMAGES.map(async i => put(`${m}/${i}`, await getImage(`${m}/${i}`))));
+  }));
+  const page = PAGE.cloneNode(true);
+  const tag = document.createElement('script');
+  tag.type = 'application/json'; tag.id = 'snapshot';
+  // "<" escapado para nenhum dado conseguir fechar a tag <script>
+  tag.textContent = JSON.stringify({ label, date, models, files, view }).replace(/</g, '\\u003c');
+  page.querySelector('script').before(tag);
+  return '<!doctype html>\n' + page.outerHTML;
+}
+
+function download(text, name, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+async function saveSnapshot() {
+  const btn = $('#snap'), label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  try {
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+    download(await buildSnapshot(), `isic2019_snapshot_${stamp}.html`, 'text/html');
+  } catch (e) {
+    alert('Não foi possível salvar o snapshot: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+}
+
+async function openSnapshot(data) {
+  const when = new Date(data.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  await load({ kind: 'snapshot', files: new Map(Object.entries(data.files)), models: data.models, label: data.label, date: data.date });
+  $('#status').textContent += ` · snapshot de ${when}`;
+  restoreView(data.view);
+}
+
 /* ---------- views ---------- */
 const rowsData = () => S.models.map(m => ({ m, params: S.metrics[m]?.params, ...(S.metrics[m]?.[S.thr] || {}) }));
 
@@ -492,7 +587,7 @@ function mountModels() {
 
 function viewFiles() {
   let paths;
-  if (S.src.kind === 'files') paths = [...S.src.files.keys()].filter(p => p.endsWith('.json')).sort();
+  if (S.src.kind !== 'server') paths = [...S.src.files.keys()].filter(p => p.endsWith('.json')).sort();
   else paths = ['summary.json', 'split.json', ...S.models.flatMap(m => [`${m}/metrics.json`, `${m}/history.json`])];
   return `
     <div class="toolbar"><span class="sub">Todos os .json carregados, abertos sob demanda</span><span class="spacer"></span>
@@ -521,6 +616,7 @@ function render() {
 
 /* ---------- eventos ---------- */
 $('#open').onclick = () => $('#picker').click();
+$('#snap').onclick = saveSnapshot;
 $('#picker').onchange = e => { if (e.target.files.length) load(fromFileList(e.target.files)); e.target.value = ''; };
 
 $('#main').addEventListener('click', e => {
@@ -536,11 +632,8 @@ $('#main').addEventListener('click', e => {
       mountOverview(); $(`[data-act="metric"][data-k="${d.k}"]`).focus({ preventScroll: true }); return;
     case 'chip': S.sel.has(d.m) ? S.sel.delete(d.m) : S.sel.add(d.m); break;
     case 'zoom': $('#lb img').src = t.src; $('#lb').showModal(); return;
-    case 'download': combined().then(o => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([JSON.stringify(o, null, 2)], { type: 'application/json' }));
-      a.download = 'resultados_combinados.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    }); return;
+    case 'download': combined().then(o =>
+      download(JSON.stringify(o, null, 2), 'resultados_combinados.json', 'application/json')); return;
     default: return;
   }
   render();
@@ -579,7 +672,9 @@ addEventListener('resize', () => {
 
 /* ---------- início ---------- */
 render();
-tryServer().then(src => src && load(src));
+const embedded = $('#snapshot');
+if (embedded) openSnapshot(JSON.parse(embedded.textContent));
+else tryServer().then(src => src && load(src));
 })();
 </script>
 </body>

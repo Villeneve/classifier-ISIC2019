@@ -99,6 +99,9 @@ ordenável, ranking por métrica, gráfico de barras por modelo (gerado dos `.js
 confusão, imagens `history/roc/confusion.png`, torchinfo), visualização dos `.json` e download de um
 **JSON combinado** com métricas e histórico de todos os modelos.
 
+O botão **Salvar snapshot** gera um único `.html` com os dados e imagens carregados e a visão atual (aba, limiar,
+métricas ligadas etc.). O arquivo abre em qualquer navegador, sem servidor nem a pasta `outputs/`.
+
 Duas formas de abrir:
 ```bash
 # 1) com servidor (carrega ../outputs/ sozinho); na raiz do projeto:
