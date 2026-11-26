@@ -29,8 +29,11 @@ ln -s /caminho/real/da/pasta/ISIC-2019 ISIC-2019
   causa da CPU fraca), redimensionado (lado menor = 450, antialias) com recorte central quadrado e salvo em
   `cache/{train,test}_450.npy` (uint8 `[N,3,450,450]`, ~15 GB + ~5 GB, lido com mmap). As próximas execuções
   só leem o cache. `--rebuild-cache` refaz.
-- **Rótulo binário:** maligno = MEL, BCC, SCC; benigno = NV, BKL, DF, VASC. **AK** (queratose actínica, pré-maligna)
-  é controlada por `--ak {benign,malignant,drop}` (padrão `benign`). Linhas sem classe/UNK são descartadas.
+- **Rótulo binário:** maligno = MEL, BCC, SCC; benigno = NV, BKL, DF, VASC. Linhas sem classe/UNK são descartadas.
+- **AK** (queratose actínica, pré-maligna) é **descartada por padrão** (`--ak drop`), no treino, na validação e no
+  teste, por não ser claramente benigna nem maligna. Use `--ak benign` ou `--ak malignant` para incluí-la.
+  Resultados obtidos com valores diferentes de `--ak` usam conjuntos diferentes e não são comparáveis. Mudar a opção
+  não exige refazer o cache.
 - **Validação:** 15% do `train/`, separada **por lesão** (`lesion_id` do Metadata) para não vazar imagens da mesma
   lesão entre treino e validação, estratificada por classe, seed fixa. O `test/` é usado só no teste final.
   Os ids de cada split ficam em `outputs/split.json`.
@@ -103,32 +106,46 @@ viewer/index.html    visualizador web dos resultados (ver seção abaixo)
 
 ## Arquiteturas
 Todos usam pesos ImageNet (exigem internet na primeira execução) e se escolhem com `--models`.
-Sem `--models`, rodam os 7 modelos padrão (marcados com ★); com `--all`, rodam todos os 18 da tabela
+Sem `--models`, rodam os 7 modelos padrão (marcados com ★); com `--all`, rodam todos os 28 da tabela
 (as variantes `_bn` contam separadamente).
 
-Em **ordem ascendente de custo computacional** (GFLOPs por imagem a 224 px, forward; valores aproximados da
-documentação do torchvision):
+Em **ordem ascendente de custo computacional** (GFLOPs por imagem, forward, na resolução que o projeto usa:
+224 px, salvo indicação; valores aproximados da documentação do torchvision, com a cabeça original de 1000 classes):
 
 | # | Modelo | GFLOPs | Parâmetros | Obs. |
 |---|--------|-------:|-----------:|------|
-| 1 | `mobilenet_v3_large` ★ | 0,22 | 5,5 M | |
-| 2 | `efficientnet_b0` ★ | 0,39 | 5,3 M | |
-| 3 | `resnet18` | 1,8 | 11,7 M | |
-| 4 | `efficientnet_b3` ★ | 1,8 | 12,2 M | roda a 300 px (custo real maior) |
-| 5 | `densenet121` ★ | 2,8 | 8,0 M | |
-| 6 | `resnet34` | 3,7 | 21,8 M | |
-| 7 | `resnet50` ★ | 4,1 | 25,6 M | |
-| 8 | `convnext_tiny` ★ | 4,5 | 28,6 M | |
-| 9 | `swin_t` | 4,5 | 28,3 M | transformer com atenção em janelas |
-| 10 | `vgg11` / `vgg11_bn` | 7,6 | 132,9 M | |
-| 11 | `vgg13` / `vgg13_bn` | 11,3 | 133,0 M | |
-| 12 | `vgg16` / `vgg16_bn` | 15,5 | 138,4 M | |
-| 13 | `vit_b_16` ★ | 17,6 | 86,6 M | exige 224 px |
-| 14 | `vgg19` / `vgg19_bn` | 19,6 | 143,7 M | |
+| 1 | `shufflenet_v2_x1_0` | 0,14 | 2,3 M |  |
+| 2 | `mobilenet_v3_large` ★ | 0,22 | 5,5 M |  |
+| 3 | `efficientnet_b0` ★ | 0,39 | 5,3 M |  |
+| 4 | `regnet_y_400mf` | 0,40 | 4,3 M |  |
+| 5 | `googlenet` | 1,5 | 6,6 M | Inception v1 |
+| 6 | `regnet_y_1_6gf` | 1,6 | 11,2 M |  |
+| 7 | `resnet18` | 1,8 | 11,7 M |  |
+| 8 | `efficientnet_b3` ★ | 1,8 | 12,2 M | 300 px |
+| 9 | `densenet121` ★ | 2,8 | 8,0 M |  |
+| 10 | `resnet34` | 3,7 | 21,8 M |  |
+| 11 | `resnet50` ★ | 4,1 | 25,6 M |  |
+| 12 | `resnext50_32x4d` | 4,2 | 25,0 M | convoluções agrupadas |
+| 13 | `convnext_tiny` ★ | 4,5 | 28,6 M |  |
+| 14 | `swin_t` | 4,5 | 28,3 M | transformer com atenção em janelas |
+| 15 | `maxvit_t` | 5,6 | 30,9 M | híbrido convolução + atenção; exige 224 px |
+| 16 | `inception_v3` | 5,7 | 27,2 M | 299 px; sem a cabeça auxiliar, fica menor |
+| 17 | `swin_v2_t` | 5,9 | 28,4 M | 256 px |
+| 18 | `vgg11` / `vgg11_bn` | 7,6 | 132,9 M |  |
+| 19 | `efficientnet_v2_s` | 8,4 | 21,5 M | 384 px |
+| 20 | `convnext_small` | 8,7 | 50,2 M |  |
+| 21 | `vgg13` / `vgg13_bn` | 11,3 | 133,0 M |  |
+| 22 | `vgg16` / `vgg16_bn` | 15,5 | 138,4 M |  |
+| 23 | `vit_b_16` ★ | 17,6 | 86,6 M | exige 224 px |
+| 24 | `vgg19` / `vgg19_bn` | 19,6 | 143,7 M |  |
 
 As variantes `_bn` têm BatchNorm (treinam mais estável) e custo praticamente igual. GFLOPs não é tempo de
-treino: VGG tem muitos parâmetros e usa bastante VRAM (batch padrão 32), e DenseNet/EfficientNet costumam ser
-mais lentos do que seus GFLOPs sugerem. A ordem é uma referência, não um benchmark medido nesta máquina.
+treino: VGG tem muitos parâmetros e usa bastante VRAM (batch padrão 32), e DenseNet/EfficientNet/ShuffleNet
+costumam ser mais lentos do que seus GFLOPs sugerem. A ordem é uma referência, não um benchmark medido nesta
+máquina. Os batches dos modelos maiores foram reduzidos por estimativa; se faltar VRAM, use `--batch-size`.
+
+Em `inception_v3` e `googlenet`, os classificadores auxiliares são removidos. A **Xception não está disponível**:
+o torchvision não a inclui.
 
 ## Visualizador de resultados (`viewer/index.html`)
 Página única (sem dependências) para explorar o que o `main.py` gera em `outputs/`: tabela comparativa
@@ -158,7 +175,7 @@ Ordem de aplicação:
 | # | Etapa | Valores | Probabilidade |
 |---|-------|---------|--------------:|
 | 1 | Conversão `uint8` → `float` | divisão por 255 (faixa 0–1) | sempre |
-| 2 | Redimensionamento prévio | 450 → `int(1,15 × tamanho)` (257 px para 224; 345 px para 300), bilinear com antialias | sempre |
+| 2 | Redimensionamento prévio | 450 → `int(1,15 × tamanho)` (ex.: 257 px para 224; 441 px para 384), bilinear com antialias | sempre |
 | 3a | Flip horizontal | espelhamento | 50% |
 | 3b | Rotação | ângulo `U(-180°, 180°)` | 100% |
 | 3c | Zoom | fração do campo de visão mantida `U(0,7, 1,0)`, ou seja, zoom de 1,0× a ≈1,43× | 100% |
@@ -172,7 +189,8 @@ Ordem de aplicação:
 - As etapas **3a–3d** formam **uma única transformação afim** (`affine_grid` + `grid_sample`), então há só uma
   interpolação: bilinear, com preenchimento por **reflexão** nas bordas. A saída já tem o tamanho de entrada do modelo.
 - O flip é só horizontal; junto com a rotação livre, ele também cobre o espelhamento vertical.
-- O tamanho de entrada é 224 px, exceto `efficientnet_b3` (300 px); `--img-size` altera.
+- O tamanho de entrada é 224 px, exceto `swin_v2_t` (256), `inception_v3` (299), `efficientnet_b3` (300) e
+  `efficientnet_v2_s` (384); `--img-size` altera.
 - **Validação e teste** (`preprocess_eval`) não têm augmentation: divisão por 255 → redimensionamento direto para o
   tamanho do modelo (bilinear com antialias) → normalização ImageNet.
 - Antes de tudo, o cache já deixou as imagens quadradas em 450 px (ver [Dataset](#dataset)); isso não é augmentation.

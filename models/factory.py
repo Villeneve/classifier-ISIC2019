@@ -11,9 +11,18 @@ def _last_linear(model):
     return model.get_submodule(parent), attr, linear
 
 
+def _drop_aux_heads(model, name):
+    """Remove os classificadores auxiliares: assim o forward do treino retorna só os logits."""
+    if name == "inception_v3":
+        model.aux_logits, model.AuxLogits = False, None
+    elif name == "googlenet":
+        model.aux_logits, model.aux1, model.aux2 = False, None, None
+
+
 def build_model(name, pretrained=True):
     weights = tvm.get_model_weights(name).DEFAULT if pretrained else None
     model = tvm.get_model(name, weights=weights)
+    _drop_aux_heads(model, name)
     parent, attr, lin = _last_linear(model)
     setattr(parent, attr, nn.Linear(lin.in_features, 1))
     return model

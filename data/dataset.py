@@ -9,7 +9,7 @@ Pipeline:
    redimensionados (lado menor -> `cache_size`, recorte central quadrado) e gravados em um cache
    uint8 [N,3,S,S] (.npy, lido com mmap) em `cache_dir`. As execuções seguintes só leem o cache.
 2. Rótulo binário a partir das 8 classes: maligno = MEL, BCC, SCC; benigno = NV, BKL, DF, VASC.
-   AK (queratose actínica, pré-maligna) é controlada por `cfg.ak` (benign | malignant | drop).
+   AK (queratose actínica, pré-maligna) é controlada por `cfg.ak` (drop, o padrão | benign | malignant).
 3. Validação = parte do treino, separada por *lesão* (lesion_id do Metadata) para evitar vazamento
    entre imagens da mesma lesão, estratificada por classe. O teste é o conjunto `test/`.
 """

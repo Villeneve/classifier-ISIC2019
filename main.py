@@ -51,8 +51,8 @@ def parse_args():
     ap.add_argument("--cache-ram", action="store_true")
     ap.add_argument("--cache-dir", default=Config.cache_dir)
     ap.add_argument("--rebuild-cache", action="store_true", help="refaz o cache de imagens")
-    ap.add_argument("--ak", choices=["benign", "malignant", "drop"], default=Config.ak,
-                    help="como tratar AK (queratose actínica): benigno, maligno ou descartar")
+    ap.add_argument("--ak", choices=["drop", "benign", "malignant"], default=Config.ak,
+                    help="como tratar AK (queratose actínica): descartar (padrão), benigno ou maligno")
     ap.add_argument("--compile", action="store_true")
     ap.add_argument("--seed", type=int, default=Config.seed)
     a = ap.parse_args()
